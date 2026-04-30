@@ -38,3 +38,5 @@ node_modules/
 .vite/
 context.md
 backendPlan.md
+phase2Implementation.md
+backend-integration.md
