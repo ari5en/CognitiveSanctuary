@@ -43,4 +43,8 @@ public class StudyTask
     {
         _status = status;
     }
+    public void updateMood(string status)
+    {
+        _status = status;
+    }
 }
