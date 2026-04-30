@@ -1,0 +1,6 @@
+@CognitiveSanctuaryAPI_HostAddress = http://localhost:5197
+
+GET {{CognitiveSanctuaryAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

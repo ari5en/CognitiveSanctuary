@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "1zKxzmaQPUQ=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\HP LAPTOP 15s\\CognitiveSanctuary\\backend\\CognitiveSanctuaryAPI\\CognitiveSanctuaryAPI.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\HP LAPTOP 15s\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.5\\microsoft.aspnetcore.openapi.10.0.5.nupkg.sha512",
+    "C:\\Users\\HP LAPTOP 15s\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

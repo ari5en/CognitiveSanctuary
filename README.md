@@ -16,12 +16,18 @@
 
 ## 🛠️ Tech Stack
 
+### Frontend
+
 - **Framework:** [React](https://reactjs.org/) (via [Vite](https://vitejs.dev/))
 - **Styling:** [Tailwind CSS](https://tailwindcss.com/)
 - **Icons:** [Lucide React](https://lucide.dev/)
 - **Animations:** [Framer Motion](https://www.framer.com/motion/)
 - **Charts:** [Recharts](https://recharts.org/)
 - **Routing:** [React Router DOM](https://reactrouter.com/)
+
+### Backend
+
+- **Framework:** ASP.NET Core Web API (C#)
 
 ---
 
@@ -31,7 +37,8 @@ Follow these instructions to get the project up and running on your local machin
 
 ### Prerequisites
 
-Ensure you have [Node.js](https://nodejs.org/) installed (LTS version recommended).
+- [Node.js](https://nodejs.org/) (LTS recommended)
+- [.NET SDK](https://dotnet.microsoft.com/download) (8.x recommended)
 
 ### Installation
 
@@ -41,43 +48,68 @@ Ensure you have [Node.js](https://nodejs.org/) installed (LTS version recommende
    cd cognitive-sanctuary
    ```
 
-2. **Install dependencies:**
+### Frontend Setup (React)
+
+1. **Install dependencies:**
+
    ```bash
+   cd frontend
    npm install
    ```
 
-3. **Install core packages (if starting fresh):**
+2. **Run the dev server:**
    ```bash
-   npm install lucide-react recharts framer-motion react-router-dom
-   npm install -D tailwindcss postcss autoprefixer
-   npx tailwindcss init -p
+   npm run dev
    ```
 
-### Running the Program
+The frontend will be available at `http://localhost:5173` (or the next available port).
 
-To start the development server:
+### Backend Setup (ASP.NET Core)
 
-```bash
-npm run dev
-```
+1. **Restore and run the API:**
+   ```bash
+   cd backend/CognitiveSanctuaryAPI
+   dotnet restore
+   dotnet run
+   ```
 
-The application will be available at `http://localhost:5173` (or the next available port).
+The backend will run on the URLs shown in the terminal output (typically `https://localhost:7xxx`).
 
 ---
 
 ## 📂 Project Structure
 
-- `src/components/ui/`: Reusable primitive components (Button, Card, Badge).
-- `src/components/layout/`: Global layout components (Sidebar, Topbar, Layout).
-- `src/pages/`: Individual page implementations (Dashboard, Schedule, Sessions, Login).
-- `src/data/mockData.js`: Centralized static data for frontend prototyping. Easily swappable for API calls.
+```
+root/
+   frontend/
+      src/
+         components/ui/
+         components/layout/
+         pages/
+         data/mockData.js
+      public/
+      package.json
+      vite.config.js
+      tailwind.config.js
+   backend/
+      CognitiveSanctuaryAPI/
+         Program.cs
+         appsettings.json
+```
+
+Frontend paths:
+
+- `frontend/src/components/ui/`: Reusable primitive components (Button, Card, Badge).
+- `frontend/src/components/layout/`: Global layout components (Sidebar, Topbar, Layout).
+- `frontend/src/pages/`: Individual page implementations (Dashboard, Schedule, Sessions, Login).
+- `frontend/src/data/mockData.js`: Centralized static data for frontend prototyping. Easily swappable for API calls.
 
 ---
 
 ## 🛠️ Developer Notes
 
 - **Animations:** All complex staggered animations have been simplified to a single-entry fade-in to ensure high performance and zero lag on all devices.
-- **Styling:** The project uses a custom Tailwind color palette (`sanctuary-50` through `sanctuary-950`) defined in `tailwind.config.js`.
+- **Styling:** The project uses a custom Tailwind color palette (`sanctuary-50` through `sanctuary-950`) defined in `frontend/tailwind.config.js`.
 - **Responsive:** The layout is designed to be responsive, centering content within a standard container for a balanced desktop experience.
 
 ---
