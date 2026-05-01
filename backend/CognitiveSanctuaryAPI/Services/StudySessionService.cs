@@ -1,47 +1,150 @@
+using System;
 using System.Collections.Generic;
-
-// calling the class files models from the folder Models
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using CognitiveSanctuaryAPI.Models;
 
 namespace CognitiveSanctuaryAPI.Services;
 
-// the class StydySessionService implements the 
-//interface InterfaceStudySessionService
-// this shows abstraction oop pillar
-// which means that the classStudySessionService is 
-//abstracting the implementation of the methods
-// defined in the interface InterfaceStudySessionService
-
 public class StudySessionService : InterfaceStudySessionService
 {
-    private readonly List<StudySession> _sessions = new();
-
-    public StudySession CreateSession(int sessionId, int breakCount)
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        var session = new StudySession(sessionId, breakCount);
-        _sessions.Add(session);
-        return session; 
+        PropertyNameCaseInsensitive = true,
+    };
+
+    private readonly HttpClient _httpClient;
+
+    public StudySessionService(HttpClient httpClient)
+    {
+        _httpClient = httpClient;
     }
 
-    public void StartSession(StudySession session)
+    public async Task<StudySession> CreateSessionAsync(int userId, int breakCount)
     {
-        session.startSession();
+        var payload = new StudySessionInsert
+        {
+            user_id = userId,
+            study_duration = 0,
+            break_count = breakCount,
+            start_time = null,
+            end_time = null,
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "study_sessions");
+        request.Headers.Add("Prefer", "return=representation");
+        request.Content = JsonContent.Create(payload);
+
+        using var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var rows = await response.Content.ReadFromJsonAsync<List<StudySessionRow>>(JsonOptions);
+        var row = rows is { Count: > 0 } ? rows[0] : null;
+
+        return row is null
+            ? new StudySession(0, breakCount)
+            : MapSession(row);
     }
 
-    public void EndSession(StudySession session)
+    public async Task UpdateSessionTimesAsync(int sessionId, DateTime startTime, DateTime endTime, double studyDuration)
     {
-        session.endSession();
+        var payload = new StudySessionUpdate
+        {
+            start_time = startTime,
+            end_time = endTime,
+            study_duration = studyDuration,
+        };
+
+        using var request = new HttpRequestMessage(new HttpMethod("PATCH"), $"study_sessions?session_id=eq.{sessionId}");
+        request.Headers.Add("Prefer", "return=representation");
+        request.Content = JsonContent.Create(payload);
+
+        using var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
     }
 
-    public void AddTask(StudySession session, StudyTask task)
+    public async Task AddTaskAsync(int sessionId, StudyTask task)
     {
-        // Placeholder for task tracking until a collection is added to StudySession.
-        _ = session;
-        _ = task;
+        var payload = new StudyTaskInsert
+        {
+            session_id = sessionId,
+            title = task.title,
+            estimated_time = task.estimatedTime,
+            status = task.status,
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "study_tasks");
+        request.Headers.Add("Prefer", "return=representation");
+        request.Content = JsonContent.Create(payload);
+
+        using var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
     }
 
-    public IReadOnlyList<StudySession> GetAllSessions()
+    public async Task<IReadOnlyList<StudySession>> GetSessionsByUserAsync(int userId)
     {
-        return _sessions.AsReadOnly();
+        var response = await _httpClient.GetAsync($"study_sessions?user_id=eq.{userId}&select=*");
+        response.EnsureSuccessStatusCode();
+
+        var rows = await response.Content.ReadFromJsonAsync<List<StudySessionRow>>(JsonOptions) ?? new List<StudySessionRow>();
+        var result = new List<StudySession>(rows.Count);
+
+        foreach (var row in rows)
+        {
+            result.Add(MapSession(row));
+        }
+
+        return result;
+    }
+
+    private static StudySession MapSession(StudySessionRow row)
+    {
+        var session = new StudySession(row.session_id, row.break_count);
+        return session;
+    }
+
+    private sealed class StudySessionRow
+    {
+        [JsonPropertyName("session_id")]
+        public int session_id { get; set; }
+
+        [JsonPropertyName("study_duration")]
+        public double? study_duration { get; set; }
+
+        [JsonPropertyName("break_count")]
+        public int break_count { get; set; }
+
+        [JsonPropertyName("start_time")]
+        public DateTime? start_time { get; set; }
+
+        [JsonPropertyName("end_time")]
+        public DateTime? end_time { get; set; }
+    }
+
+    private sealed class StudySessionInsert
+    {
+        public int user_id { get; set; }
+        public double study_duration { get; set; }
+        public int break_count { get; set; }
+        public DateTime? start_time { get; set; }
+        public DateTime? end_time { get; set; }
+    }
+
+    private sealed class StudySessionUpdate
+    {
+        public double study_duration { get; set; }
+        public DateTime start_time { get; set; }
+        public DateTime end_time { get; set; }
+    }
+
+    private sealed class StudyTaskInsert
+    {
+        public int session_id { get; set; }
+        public string title { get; set; } = string.Empty;
+        public double estimated_time { get; set; }
+        public string status { get; set; } = string.Empty;
     }
 }

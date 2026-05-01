@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using CognitiveSanctuaryAPI.Models;
 
 namespace CognitiveSanctuaryAPI.Services;
@@ -15,9 +17,8 @@ namespace CognitiveSanctuaryAPI.Services;
 
 public interface InterfaceStudySessionService
 {
-    StudySession CreateSession(int sessionId, int breakCount);
-    void StartSession(StudySession session);
-    void EndSession(StudySession session);
-    void AddTask(StudySession session, StudyTask task);
-    IReadOnlyList<StudySession> GetAllSessions();
+    Task<StudySession> CreateSessionAsync(int userId, int breakCount);
+    Task UpdateSessionTimesAsync(int sessionId, DateTime startTime, DateTime endTime, double studyDuration);
+    Task AddTaskAsync(int sessionId, StudyTask task);
+    Task<IReadOnlyList<StudySession>> GetSessionsByUserAsync(int userId);
 }

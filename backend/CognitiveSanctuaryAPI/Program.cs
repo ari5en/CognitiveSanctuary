@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the DI container
@@ -7,9 +9,32 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-builder.Services.AddScoped<CognitiveSanctuaryAPI.Services.InterfaceStudySessionService, CognitiveSanctuaryAPI.Services.StudySessionService>();
-builder.Services.AddScoped<CognitiveSanctuaryAPI.Services.InterfaceBurnoutService, CognitiveSanctuaryAPI.Services.BurnoutService>();
-builder.Services.AddScoped<CognitiveSanctuaryAPI.Services.InterfaceStudyPlannerService, CognitiveSanctuaryAPI.Services.StudyPlannerService>();
+
+var supabaseUrl = builder.Configuration["SUPABASE_URL"];
+var supabaseAnonKey = builder.Configuration["ANON_KEY"];
+
+if (string.IsNullOrWhiteSpace(supabaseUrl) || string.IsNullOrWhiteSpace(supabaseAnonKey))
+{
+    throw new InvalidOperationException("SUPABASE_URL and ANON_KEY must be set in the environment.");
+}
+
+void ConfigureSupabaseClient(HttpClient client)
+{
+    client.BaseAddress = new Uri($"{supabaseUrl.TrimEnd('/')}/rest/v1/");
+    client.DefaultRequestHeaders.Clear();
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    client.DefaultRequestHeaders.Add("apikey", supabaseAnonKey);
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", supabaseAnonKey);
+}
+
+builder.Services.AddHttpClient<CognitiveSanctuaryAPI.Services.InterfaceStudySessionService, CognitiveSanctuaryAPI.Services.StudySessionService>(
+    client => ConfigureSupabaseClient(client));
+
+builder.Services.AddHttpClient<CognitiveSanctuaryAPI.Services.InterfaceBurnoutService, CognitiveSanctuaryAPI.Services.BurnoutService>(
+    client => ConfigureSupabaseClient(client));
+
+builder.Services.AddHttpClient<CognitiveSanctuaryAPI.Services.InterfaceStudyPlannerService, CognitiveSanctuaryAPI.Services.StudyPlannerService>(
+    client => ConfigureSupabaseClient(client));
 
 var app = builder.Build();
 
