@@ -123,6 +123,12 @@ builder.Services.AddHttpClient<
     CognitiveSanctuaryAPI.Services.StudyPlannerService
 >(client => ConfigureSupabaseClient(client));
 
+// Dashboard service registration
+builder.Services.AddScoped<
+    CognitiveSanctuaryAPI.Services.InterfaceDashboardService,
+    CognitiveSanctuaryAPI.Services.DashboardService
+>();
+
 /*
 =====================================================
  BUILD APPLICATION PIPELINE

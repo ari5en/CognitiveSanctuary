@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { getPlannerByUser, getSessionsByUser, getTasksByUser, getLatestBurnoutByUser } from "../services/api";
+import { getDashboardData, getTasksByUser, getSessionsByUser } from "../services/api";
 
 // Dashboard Components
 import DashboardHeader from "../components/dashboard/DashboardHeader";
@@ -80,18 +80,15 @@ const DashboardPage = () => {
 
     const loadData = async () => {
       try {
-        const [sessions, planner, tasks, burnout] = await Promise.all([
-          getSessionsByUser(1),
-          getPlannerByUser(1).catch(() => null),
+        const [dash, tasks, sessions] = await Promise.all([
+          getDashboardData(1),
           getTasksByUser(1).catch(() => []),
-          getLatestBurnoutByUser(1).catch(() => null),
+          getSessionsByUser(1).catch(() => []),
         ]);
 
         if (!isMounted) return;
 
-        const completedTasksCount = tasks.filter(t => t.status === "Completed").length;
-
-        // Map tasks to milestones (priority ones)
+        // Map tasks to milestones
         const dynamicMilestones = tasks
           .filter(t => t.status !== "Completed")
           .slice(0, 3)
@@ -104,14 +101,9 @@ const DashboardPage = () => {
             borderColor: t.status === "InProgress" ? "border-amber-400" : "border-green-500",
           }));
 
-        // --- Data Aggregation Logic ---
-        const totalMinutes = sessions.reduce((acc, s) => acc + (s.studyDuration || 0), 0);
-        const totalHours = (totalMinutes / 60).toFixed(1);
-        const totalBreaks = sessions.reduce((acc, s) => acc + (s.breakCount || 0), 0);
-
+        // Focus Flow Chart Data (Still need sessions for this chart)
         const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
         const chartData = days.map((day) => ({ day, engagement: 0 }));
-
         sessions.forEach((s) => {
           const date = s.startTime ? new Date(s.startTime) : null;
           if (date && !isNaN(date)) {
@@ -120,40 +112,28 @@ const DashboardPage = () => {
             if (entry) entry.engagement += s.studyDuration || 0;
           }
         });
-
         const maxEngagement = Math.max(...chartData.map((d) => d.engagement), 0) || 1;
         const normalizedChartData = chartData.map((d) => ({
           ...d,
           engagement: Math.round((d.engagement / maxEngagement) * 100),
         }));
 
-        const sessionScore = sessions.length > 0 
-          ? Math.min(100, sessions.length * 10) 
-          : 30;
-
         setDashboardData((prev) => ({
           ...prev,
           milestones: dynamicMilestones.length > 0 ? dynamicMilestones : prev.milestones,
           kpis: [
-            { label: "STUDY HOURS", value: `${totalHours}h`, icon: "clock" },
-            { label: "TASKS DONE", value: `${completedTasksCount}`, icon: "check-square" },
-            { label: "DAILY MOOD", value: burnout?.burnoutLevel || "Neutral", icon: "smile" },
+            { label: "STUDY HOURS", value: `${(dash.totalFocusTime / 60).toFixed(1)}h`, icon: "clock" },
+            { label: "TASKS DONE", value: `${dash.completedTasks}`, icon: "check-square" },
+            { label: "DAILY MOOD", value: dash.moodLevel, icon: "smile" },
           ],
           focusFlowData: normalizedChartData,
           burnoutRisk: {
-            score: burnout?.score || 30,
-            status: burnout?.burnoutLevel?.toUpperCase() || "STABLE",
-            description: burnout 
-              ? `Your latest analysis shows a ${burnout.burnoutLevel} risk level. ${planner?.recommendedLoad < 50 ? "Rest is advised." : "Keep it up!"}`
-              : "No burnout data available. Complete a session to see your risk.",
+            score: dash.burnoutRisk,
+            status: dash.moodLevel.toUpperCase(),
+            description: dash.burnoutRisk > 70 
+              ? "High burnout risk detected. Rest is strongly advised." 
+              : "Your cognitive load is stable. Keep maintaining this pace.",
           },
-          statusBanner: planner
-            ? {
-                ...prev.statusBanner,
-                message: "Planner synced",
-                description: `Recommended load set to ${planner.recommendedLoad}%.`,
-              }
-            : prev.statusBanner,
         }));
       } catch (err) {
         if (isMounted) setError("Unable to load dashboard data.");
