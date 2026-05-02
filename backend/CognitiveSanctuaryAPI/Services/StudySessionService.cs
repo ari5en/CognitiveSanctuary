@@ -100,6 +100,32 @@ public class StudySessionService : InterfaceStudySessionService
         return result;
     }
 
+    public async Task<IReadOnlyList<StudyTask>> GetTasksByUserAsync(int userId)
+    {
+        // Using Supabase join to filter tasks by user_id in study_sessions
+        var url = $"study_tasks?select=*,study_sessions!inner(user_id)&study_sessions.user_id=eq.{userId}";
+        var response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+
+        var rows = await response.Content.ReadFromJsonAsync<List<StudyTaskRow>>(JsonOptions) ?? new List<StudyTaskRow>();
+        var result = new List<StudyTask>(rows.Count);
+
+        foreach (var row in rows)
+        {
+            result.Add(new StudyTask(row.task_id, row.title, row.estimated_time, row.status));
+        }
+
+        return result;
+    }
+    private sealed class StudyTaskRow
+    {
+        public int task_id { get; set; }
+        public int session_id { get; set; }
+        public string title { get; set; } = string.Empty;
+        public double estimated_time { get; set; }
+        public string status { get; set; } = string.Empty;
+    }
+
     private static StudySession MapSession(StudySessionRow row)
     {
         var session = new StudySession(row.session_id, row.break_count);

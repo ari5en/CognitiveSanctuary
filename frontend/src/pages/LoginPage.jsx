@@ -10,8 +10,10 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   const handleLogin = (credentials) => {
-    // In a real app, you would validate credentials with the backend here
+    // Mock login logic
     console.log("Logging in with:", credentials);
+    const mockUser = { id: 1, email: credentials.email, name: "Alex" };
+    localStorage.setItem("user", JSON.stringify(mockUser));
     navigate("/dashboard");
   };
 

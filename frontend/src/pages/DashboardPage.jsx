@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { getPlannerByUser, getSessionsByUser } from "../services/api";
+import { getPlannerByUser, getSessionsByUser, getTasksByUser } from "../services/api";
 
 // Dashboard Components
 import DashboardHeader from "../components/dashboard/DashboardHeader";
@@ -67,18 +67,36 @@ const defaultDashboardData = {
 const DashboardPage = () => {
   const [dashboardData, setDashboardData] = useState(defaultDashboardData);
   const [error, setError] = useState("");
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user") || '{"name": "Alex", "id": 1}');
+    setUser(storedUser);
+    setDashboardData(prev => ({ ...prev, greeting: `Hello, ${storedUser.name}` }));
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadData = async () => {
       try {
-        const [sessions, planner] = await Promise.all([
+        const [sessions, planner, tasks] = await Promise.all([
           getSessionsByUser(1),
           getPlannerByUser(1).catch(() => null),
+          getTasksByUser(1).catch(() => []),
         ]);
 
         if (!isMounted) return;
+
+        // Map tasks to milestones
+        const dynamicMilestones = tasks.slice(0, 2).map((t, idx) => ({
+          id: t.taskId || idx,
+          title: t.title,
+          date: "PENDING",
+          badge: "TASK",
+          badgeColor: "green",
+          borderColor: "border-green-500",
+        }));
 
         // --- Data Aggregation Logic ---
         const totalMinutes = sessions.reduce((acc, s) => acc + (s.studyDuration || 0), 0);
@@ -109,6 +127,7 @@ const DashboardPage = () => {
 
         setDashboardData((prev) => ({
           ...prev,
+          milestones: dynamicMilestones.length > 0 ? dynamicMilestones : prev.milestones,
           kpis: [
             { label: "STUDY HOURS", value: `${totalHours}h`, icon: "clock" },
             { label: "BREAKS TAKEN", value: `${totalBreaks}`, icon: "coffee" },

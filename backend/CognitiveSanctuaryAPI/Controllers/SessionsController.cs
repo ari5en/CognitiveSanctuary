@@ -46,6 +46,18 @@ public sealed class SessionsController : ControllerBase
         return Ok(sessions);
     }
 
+    [HttpGet("user/{userId:int}/tasks")]
+    public async Task<IActionResult> GetTasksByUser(int userId)
+    {
+        if (userId <= 0)
+        {
+            return BadRequest("UserId must be greater than 0.");
+        }
+
+        var tasks = await _studySessionService.GetTasksByUserAsync(userId);
+        return Ok(tasks);
+    }
+
     [HttpPost("{sessionId:int}/tasks")]
     public async Task<IActionResult> AddTask(int sessionId, [FromBody] TaskCreateRequest request)
     {
@@ -67,7 +79,7 @@ public sealed class SessionsController : ControllerBase
         var task = new StudyTask(0, request.Title, request.EstimatedTime, request.Status);
         await _studySessionService.AddTaskAsync(sessionId, task);
 
-        return Ok();
+        return Ok(new { message = "Task added successfully" });
     }
 
     [HttpPatch("{sessionId:int}/times")]

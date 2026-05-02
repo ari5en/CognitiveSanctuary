@@ -9,14 +9,33 @@ const taskIconMap = {
   microscope: <Microscope size={20} className="text-sanctuary-800" />,
 };
 
-const PriorityFocus = ({ tasks }) => {
+const PriorityFocus = ({ tasks, onAddTask }) => {
+  const [newTitle, setNewTitle] = React.useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newTitle.trim()) {
+      onAddTask(newTitle);
+      setNewTitle("");
+    }
+  };
+
   return (
     <Card padding={false} className="overflow-hidden">
       <div className="px-5 py-4 flex items-center justify-between border-b border-slate-100">
         <h2 className="font-semibold text-slate-800">Priority Focus</h2>
-        <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
-          {tasks.length} Active Today
-        </span>
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Quick Add Task..."
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sanctuary-500"
+          />
+          <button type="submit" className="text-xs bg-sanctuary-900 text-white px-3 py-1.5 rounded-lg hover:bg-sanctuary-800 transition-colors">
+            Add
+          </button>
+        </form>
       </div>
       <div className="divide-y divide-slate-50">
         {tasks.map((task) => (

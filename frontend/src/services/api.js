@@ -16,11 +16,12 @@ async function request(path, options = {}) {
     throw new Error(message || `Request failed: ${response.status}`);
   }
 
-  if (response.status === 204) {
-    return null;
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch (err) {
+    return text; // Return raw text if not JSON
   }
-
-  return response.json();
 }
 
 export async function getSessionsByUser(userId) {
@@ -64,4 +65,8 @@ export async function savePlanner(payload) {
 
 export async function getPlannerByUser(userId) {
   return request(`/api/planner/user/${userId}`);
+}
+
+export async function getTasksByUser(userId) {
+  return request(`/api/sessions/user/${userId}/tasks`);
 }

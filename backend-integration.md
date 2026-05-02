@@ -1,4 +1,4 @@
-    w# Cognitive Sanctuary - Backend Integration Guide
+    # Cognitive Sanctuary - Backend Integration Guide
 
 ## Purpose
 
@@ -6,7 +6,7 @@ This document is the shared guide for backend setup, integration, and coordinati
 
 ---
 
-## Phase 1 - Backend Project Initialization (Current Phase)
+## Phase 1 - Backend Project Initialization
 
 ### Objective
 
@@ -64,17 +64,26 @@ Implement the core domain classes required by the UML:
 - BurnoutCalculator
 - StudyPlanner
 
-### Phase 3 - Database Integration
+Important:
+
+- Use UML naming and types exactly (no Guid, no TimeSpan, no enterprise abstractions).
+
+### Phase 3 - Service Layer Implementation
+
+- Implement the business logic layer (services) to orchestrate model behavior.
+- Keep controllers thin; services handle study sessions, burnout scoring, and planning.
+
+### Phase 4 - Database Integration
 
 - Configure Entity Framework Core
 - Implement migrations
 - Create schema based on models
 
-### Phase 4 - API Development
+### Phase 5 - API Development
 
 - Build REST endpoints for auth, sessions, planner, and burnout monitoring
 
-### Phase 5 - Frontend Integration
+### Phase 6 - Frontend Integration
 
 - Replace `mockData.js`
 - Connect pages with backend APIs

@@ -40,3 +40,64 @@ context.md
 backendPlan.md
 phase2Implementation.md
 backend-integration.md
+phase3Implementation.md
+phase4Implementation.md
+phase5Implementation.md
+
+
+
+# =========================
+# ASP.NET Core / .NET Build Output
+# =========================
+bin/
+obj/
+
+# DLLs, EXEs, PDBs (compiled outputs)
+*.dll
+*.exe
+*.pdb
+*.runtimeconfig.json
+*.deps.json
+*.precompiled.dll
+*.cache
+
+# =========================
+# Visual Studio / IDE
+# =========================
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =========================
+# ASP.NET Core Static Assets
+# =========================
+wwwroot/
+staticwebassets.*.json
+
+# =========================
+# Build artifacts / intermediate files
+# =========================
+*.log
+*.tmp
+*.tlog
+*.obj
+*.idb
+*.ilk
+
+# =========================
+# EF Core (if ever gagamit ka)
+# =========================
+Migrations/*Designer.cs
+Migrations/*.Snapshot.cs
+
+# =========================
+# OS junk files
+# =========================
+.DS_Store
+Thumbs.db
+
+backend/CognitiveSanctuaryAPI/obj/Debug/net10.0/CognitiveSanctuaryAPI.AssemblyInfoInputs.cache
+backend/CognitiveSanctuaryAPI/obj/Debug/net10.0/CognitiveSanctuaryAPI.AssemblyInfo.cs

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
-import { getPlannerByUser, getSessionsByUser } from "../services/api";
+import { getPlannerByUser, getSessionsByUser, getTasksByUser, addTaskToSession, createSession } from "../services/api";
 
 // Schedule Components
 import ScheduleHeader from "../components/schedule/ScheduleHeader";
@@ -34,22 +34,34 @@ const SchedulePage = () => {
     let isMounted = true;
     const loadData = async () => {
       try {
-        const [planner, sessions] = await Promise.all([
+        const [planner, sessions, tasks] = await Promise.all([
           getPlannerByUser(1).catch(() => null),
           getSessionsByUser(1),
+          getTasksByUser(1).catch(() => []),
         ]);
 
         if (!isMounted) return;
 
         const load = planner?.recommendedLoad ?? Math.min(100, 50 + sessions.length * 10);
 
+        // Map real tasks to the UI format
+        const mappedTasks = tasks.map((t, idx) => ({
+          id: t.taskId || idx,
+          title: t.title,
+          subject: "FOCUS", 
+          subjectColor: "green",
+          duration: `${t.estimatedTime} mins`,
+          icon: "sigma",
+        }));
+
         setScheduleData((prev) => ({
           ...prev,
+          priorityTasks: mappedTasks.length > 0 ? mappedTasks : prev.priorityTasks,
           alert: {
             ...prev.alert,
             load,
-            message: sessions.length > 0 
-              ? `${sessions.length} sessions synced from backend.` 
+            message: tasks.length > 0 
+              ? `Synced ${tasks.length} tasks from your neural patterns.` 
               : prev.alert.message,
           },
         }));
@@ -61,6 +73,50 @@ const SchedulePage = () => {
     loadData();
     return () => { isMounted = false; };
   }, []);
+
+  const handleAddTask = async (title) => {
+    setError(""); // Clear previous errors
+    try {
+      let sessions = await getSessionsByUser(1);
+      let sessionId;
+      
+      if (!sessions || sessions.length === 0) {
+        const newSession = await createSession({ userId: 1, breakCount: 0 });
+        sessionId = newSession.sessionId;
+      } else {
+        sessionId = sessions[0].sessionId;
+      }
+
+      if (!sessionId) throw new Error("Could not determine session ID");
+
+      await addTaskToSession(sessionId, {
+        title,
+        estimatedTime: 30,
+        status: "Pending"
+      });
+
+      // Refresh tasks immediately
+      const updatedTasks = await getTasksByUser(1);
+      const mappedTasks = updatedTasks.map((t, idx) => ({
+        id: t.taskId || t.task_id || idx,
+        title: t.title,
+        subject: "FOCUS", 
+        subjectColor: "green",
+        duration: `${t.estimatedTime || t.estimated_time || 30} mins`,
+        icon: "sigma",
+      }));
+      
+      setScheduleData(prev => ({ 
+        ...prev, 
+        priorityTasks: mappedTasks 
+      }));
+      
+      setError(""); // Success
+    } catch (err) {
+      console.error("Error adding task:", err);
+      setError("Failed to add task. Please try again.");
+    }
+  };
 
   return (
     <motion.div
@@ -83,7 +139,7 @@ const SchedulePage = () => {
             message={scheduleData.alert.message} 
           />
           
-          <PriorityFocus tasks={scheduleData.priorityTasks} />
+          <PriorityFocus tasks={scheduleData.priorityTasks} onAddTask={handleAddTask} />
 
           <div className="flex items-center gap-3 py-2">
             <div className="flex-1 border-t border-dashed border-slate-200" />

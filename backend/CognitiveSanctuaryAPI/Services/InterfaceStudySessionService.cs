@@ -51,4 +51,5 @@ public interface InterfaceStudySessionService
     Task UpdateSessionTimesAsync(int sessionId, DateTime startTime, DateTime endTime, double studyDuration);
     Task AddTaskAsync(int sessionId, StudyTask task);
     Task<IReadOnlyList<StudySession>> GetSessionsByUserAsync(int userId);
+    Task<IReadOnlyList<StudyTask>> GetTasksByUserAsync(int userId);
 }
