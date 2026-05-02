@@ -58,14 +58,6 @@ public sealed class SessionsController : ControllerBase
         return Ok(tasks);
     }
 
-    [HttpGet("active/{userId:int}")]
-    public async Task<IActionResult> GetActiveSession(int userId)
-    {
-        if (userId <= 0) return BadRequest("UserId must be greater than 0.");
-        var session = await _studySessionService.GetActiveSessionAsync(userId);
-        if (session == null) return NotFound("No active session found.");
-        return Ok(session);
-    }
 
     [HttpPost("{sessionId:int}/tasks")]
     public async Task<IActionResult> AddTask(int sessionId, [FromBody] TaskCreateRequest request)

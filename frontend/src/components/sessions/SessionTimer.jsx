@@ -3,8 +3,8 @@ import { Play, Pause, Square, CheckCircle } from "lucide-react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 
-const SessionTimer = ({ initialMinutes, resumedSecondsLeft, tasks, onEnd, onTaskToggle }) => {
-  const [secondsLeft, setSecondsLeft] = useState(resumedSecondsLeft !== undefined ? resumedSecondsLeft : initialMinutes * 60);
+const SessionTimer = ({ initialMinutes, tasks, onEnd, onTaskToggle }) => {
+  const [secondsLeft, setSecondsLeft] = useState(initialMinutes * 60);
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
@@ -54,7 +54,6 @@ const SessionTimer = ({ initialMinutes, resumedSecondsLeft, tasks, onEnd, onTask
           variant="solid" 
           className="px-8 rounded-full h-14 shadow-md" 
           onClick={() => {
-            if (secondsLeft > 10 && !confirm("The session is still active. Are you sure you want to end it now?")) return;
             onEnd({ completed: false, duration: Math.floor((initialMinutes * 60 - secondsLeft) / 60) });
           }}
         >

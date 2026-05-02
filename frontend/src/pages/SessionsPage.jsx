@@ -59,7 +59,6 @@ const SessionsPage = () => {
   const [isActiveSession, setIsActiveSession] = useState(false);
   const [activeSessionData, setActiveSessionData] = useState(null);
   const [sessionStartTime, setSessionStartTime] = useState(null);
-  const [resumedSecondsLeft, setResumedSecondsLeft] = useState(null);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -69,35 +68,14 @@ const SessionsPage = () => {
 
     const loadInitialData = async () => {
       try {
-        const [sessions, tasks, active] = await Promise.all([
+        const [sessions, tasks] = await Promise.all([
           getSessionsByUser(1),
           getTasksByUser(1).catch(() => []),
-          getActiveSession(1).catch(() => null),
         ]);
 
         if (isMounted) {
           setRecentSessions(sessions);
           setAvailableTasks(tasks.filter((t) => t.status !== "Completed"));
-
-          if (active) {
-            const start = new Date(active.startTime || active.start_time);
-            const now = new Date();
-            const elapsedSeconds = Math.floor((now - start) / 1000);
-            const targetMinutes = active.studyDuration || active.study_duration || 120;
-            const targetSeconds = targetMinutes * 60;
-            const remaining = Math.max(0, targetSeconds - elapsedSeconds);
-
-            setActiveSessionData(active);
-            setSessionStartTime(active.startTime || active.start_time);
-            setStudyHours(targetMinutes / 60);
-            setResumedSecondsLeft(remaining);
-            setIsActiveSession(true);
-
-            const activeTasks = tasks.filter(t => (t.sessionId || t.session_id) === active.sessionId);
-            if (activeTasks.length > 0) {
-              setSelectedTaskIds(activeTasks.map(t => t.taskId || t.task_id));
-            }
-          }
         }
       } catch (err) {
         if (isMounted) setError("Unable to load session data.");
@@ -151,17 +129,9 @@ const SessionsPage = () => {
         );
       }
 
-      const now = new Date().toISOString();
-      await updateSessionTimes(session.sessionId, {
-        startTime: now,
-        endTime: now,
-        studyDuration: studyHours * 60,
-      });
-
       setRecentSessions((prev) => [session, ...prev]);
       setActiveSessionData(session);
-      setSessionStartTime(now);
-      setResumedSecondsLeft(null);
+      setSessionStartTime(new Date().toISOString());
       setIsActiveSession(true);
     } catch (err) {
       setError("Unable to start the session.");
@@ -242,7 +212,6 @@ const SessionsPage = () => {
           {isActiveSession ? (
             <SessionTimer
               initialMinutes={studyHours * 60}
-              resumedSecondsLeft={resumedSecondsLeft}
               tasks={activeTasks}
               onEnd={handleEndSession}
               onTaskToggle={handleToggleTaskInSession}

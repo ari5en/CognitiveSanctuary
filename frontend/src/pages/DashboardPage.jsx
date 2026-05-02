@@ -80,15 +80,17 @@ const DashboardPage = () => {
 
     const loadData = async () => {
       try {
-        const [dash, tasks, sessions] = await Promise.all([
-          getDashboardData(1),
+        const [sessions, planner, tasks, burnout] = await Promise.all([
+          getSessionsByUser(1),
+          getPlannerByUser(1).catch(() => null),
           getTasksByUser(1).catch(() => []),
-          getSessionsByUser(1).catch(() => []),
+          getLatestBurnoutByUser(1).catch(() => null),
         ]);
 
         if (!isMounted) return;
 
-        // Map tasks to milestones
+        const completedTasksCount = tasks.filter(t => t.status === "Completed").length;
+
         const dynamicMilestones = tasks
           .filter(t => t.status !== "Completed")
           .slice(0, 3)
@@ -101,7 +103,9 @@ const DashboardPage = () => {
             borderColor: t.status === "InProgress" ? "border-amber-400" : "border-green-500",
           }));
 
-        // Focus Flow Chart Data (Still need sessions for this chart)
+        const totalMinutes = sessions.reduce((acc, s) => acc + (s.studyDuration || 0), 0);
+        const totalHours = (totalMinutes / 60).toFixed(1);
+        
         const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
         const chartData = days.map((day) => ({ day, engagement: 0 }));
         sessions.forEach((s) => {
@@ -122,18 +126,25 @@ const DashboardPage = () => {
           ...prev,
           milestones: dynamicMilestones.length > 0 ? dynamicMilestones : prev.milestones,
           kpis: [
-            { label: "STUDY HOURS", value: `${(dash.totalFocusTime / 60).toFixed(1)}h`, icon: "clock" },
-            { label: "TASKS DONE", value: `${dash.completedTasks}`, icon: "check-square" },
-            { label: "DAILY MOOD", value: dash.moodLevel, icon: "smile" },
+            { label: "STUDY HOURS", value: `${totalHours}h`, icon: "clock" },
+            { label: "TASKS DONE", value: `${completedTasksCount}`, icon: "check-square" },
+            { label: "DAILY MOOD", value: burnout?.burnoutLevel || "Neutral", icon: "smile" },
           ],
           focusFlowData: normalizedChartData,
           burnoutRisk: {
-            score: dash.burnoutRisk,
-            status: dash.moodLevel.toUpperCase(),
-            description: dash.burnoutRisk > 70 
-              ? "High burnout risk detected. Rest is strongly advised." 
-              : "Your cognitive load is stable. Keep maintaining this pace.",
+            score: burnout?.score || 30,
+            status: (burnout?.burnoutLevel || "STABLE").toUpperCase(),
+            description: burnout?.score > 70 
+              ? "High burnout risk detected. Rest is advised." 
+              : "Your cognitive load is stable. Maintain your pace.",
           },
+          statusBanner: planner
+            ? {
+                ...prev.statusBanner,
+                message: "Planner synced",
+                description: `Recommended load set to ${planner.recommendedLoad}%.`,
+              }
+            : prev.statusBanner,
         }));
       } catch (err) {
         if (isMounted) setError("Unable to load dashboard data.");

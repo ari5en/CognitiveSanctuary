@@ -91,14 +91,6 @@ export async function deleteTask(taskId) {
   });
 }
 
-export async function getActiveSession(userId) {
-  return request(`/api/sessions/active/${userId}`);
-}
-
-export async function getDashboardData(userId) {
-  return request(`/api/dashboard/user/${userId}`);
-}
-
 export async function getLatestBurnoutByUser(userId) {
   return request(`/api/burnout/user/${userId}`);
 }

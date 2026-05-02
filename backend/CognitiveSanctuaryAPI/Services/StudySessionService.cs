@@ -25,13 +25,6 @@ public class StudySessionService : InterfaceStudySessionService
 
     public async Task<StudySession> CreateSessionAsync(int userId, int breakCount)
     {
-        // 🛡️ Validation: Prevent multiple active sessions
-        var active = await GetActiveSessionAsync(userId);
-        if (active != null)
-        {
-            throw new InvalidOperationException("User already has an active focus session.");
-        }
-
         var payload = new StudySessionInsert
         {
             user_id = userId,
@@ -48,12 +41,13 @@ public class StudySessionService : InterfaceStudySessionService
         using var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
-        var rows = await response.Content.ReadFromJsonAsync<List<StudySessionRow>>(JsonOptions);
-        var row = rows is { Count: > 0 } ? rows[0] : null;
+        var rows = await response.Content.ReadFromJsonAsync<List<StudySessionRow>>(JsonOptions) ?? new List<StudySessionRow>();
+        if (rows.Count == 0)
+        {
+            throw new System.Exception("Failed to create study session.");
+        }
 
-        return row is null
-            ? new StudySession(0, breakCount)
-            : MapSession(row);
+        return MapSession(rows[0]);
     }
 
     public async Task UpdateSessionTimesAsync(int sessionId, DateTime startTime, DateTime endTime, double studyDuration)
@@ -75,13 +69,6 @@ public class StudySessionService : InterfaceStudySessionService
 
     public async Task AddTaskAsync(int sessionId, StudyTask task)
     {
-        // 🛡️ Validation: Session must exist
-        var checkResp = await _httpClient.GetAsync($"study_sessions?session_id=eq.{sessionId}&select=session_id");
-        if (!checkResp.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException("Target session does not exist.");
-        }
-
         var payload = new StudyTaskInsert
         {
             session_id = sessionId,
@@ -134,25 +121,6 @@ public class StudySessionService : InterfaceStudySessionService
 
     public async Task UpdateTaskAsync(int taskId, StudyTask task)
     {
-        // 🛡️ Validation: Task Status Workflow
-        var currentResp = await _httpClient.GetAsync($"study_tasks?task_id=eq.{taskId}&select=status");
-        if (currentResp.IsSuccessStatusCode)
-        {
-            var currentTasks = await currentResp.Content.ReadFromJsonAsync<List<StudyTaskRow>>(JsonOptions);
-            if (currentTasks is { Count: > 0 })
-            {
-                var currentStatus = currentTasks[0].status;
-                if (currentStatus == "Completed" && task.status != "Completed")
-                {
-                    throw new InvalidOperationException("Completed tasks cannot be reverted.");
-                }
-                if (currentStatus == "Pending" && task.status == "Completed") // Note: UI uses "Pending" or "Planned"
-                {
-                    throw new InvalidOperationException("Tasks must be InProgress before being Completed.");
-                }
-            }
-        }
-
         var payload = new StudyTaskUpdate
         {
             title = task.title,
@@ -174,16 +142,6 @@ public class StudySessionService : InterfaceStudySessionService
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<StudySession?> GetActiveSessionAsync(int userId)
-    {
-        // Find session where start_time is set but end_time is null
-        var url = $"study_sessions?user_id=eq.{userId}&start_time=not.is.null&end_time=is.null&order=session_id.desc&limit=1";
-        var response = await _httpClient.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-
-        var rows = await response.Content.ReadFromJsonAsync<List<StudySessionRow>>(JsonOptions) ?? new List<StudySessionRow>();
-        return rows is { Count: > 0 } ? MapSession(rows[0]) : null;
-    }
     private sealed class StudyTaskUpdate
     {
         public string title { get; set; } = string.Empty;
