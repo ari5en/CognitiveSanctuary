@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { getPlannerByUser, getSessionsByUser, getTasksByUser } from "../services/api";
+import { getPlannerByUser, getSessionsByUser, getTasksByUser, getLatestBurnoutByUser } from "../services/api";
 
 // Dashboard Components
 import DashboardHeader from "../components/dashboard/DashboardHeader";
@@ -80,23 +80,29 @@ const DashboardPage = () => {
 
     const loadData = async () => {
       try {
-        const [sessions, planner, tasks] = await Promise.all([
+        const [sessions, planner, tasks, burnout] = await Promise.all([
           getSessionsByUser(1),
           getPlannerByUser(1).catch(() => null),
           getTasksByUser(1).catch(() => []),
+          getLatestBurnoutByUser(1).catch(() => null),
         ]);
 
         if (!isMounted) return;
 
-        // Map tasks to milestones
-        const dynamicMilestones = tasks.slice(0, 2).map((t, idx) => ({
-          id: t.taskId || idx,
-          title: t.title,
-          date: "PENDING",
-          badge: "TASK",
-          badgeColor: "green",
-          borderColor: "border-green-500",
-        }));
+        const completedTasksCount = tasks.filter(t => t.status === "Completed").length;
+
+        // Map tasks to milestones (priority ones)
+        const dynamicMilestones = tasks
+          .filter(t => t.status !== "Completed")
+          .slice(0, 3)
+          .map((t, idx) => ({
+            id: t.taskId || t.task_id || idx,
+            title: t.title,
+            date: t.status === "InProgress" ? "IN PROGRESS" : "PLANNED",
+            badge: "TASK",
+            badgeColor: t.status === "InProgress" ? "amber" : "green",
+            borderColor: t.status === "InProgress" ? "border-amber-400" : "border-green-500",
+          }));
 
         // --- Data Aggregation Logic ---
         const totalMinutes = sessions.reduce((acc, s) => acc + (s.studyDuration || 0), 0);
@@ -130,17 +136,16 @@ const DashboardPage = () => {
           milestones: dynamicMilestones.length > 0 ? dynamicMilestones : prev.milestones,
           kpis: [
             { label: "STUDY HOURS", value: `${totalHours}h`, icon: "clock" },
-            { label: "BREAKS TAKEN", value: `${totalBreaks}`, icon: "coffee" },
-            { label: "DAILY MOOD", value: "Happy", icon: "smile" },
+            { label: "TASKS DONE", value: `${completedTasksCount}`, icon: "check-square" },
+            { label: "DAILY MOOD", value: burnout?.burnoutLevel || "Neutral", icon: "smile" },
           ],
           focusFlowData: normalizedChartData,
           burnoutRisk: {
-            ...prev.burnoutRisk,
-            score: sessionScore,
-            status: sessionScore > 70 ? "HIGH RISK" : "STABLE",
-            description: sessions.length > 0 
-              ? "Your recovery sessions have been tracked. Keep maintaining a balanced pace."
-              : prev.burnoutRisk.description,
+            score: burnout?.score || 30,
+            status: burnout?.burnoutLevel?.toUpperCase() || "STABLE",
+            description: burnout 
+              ? `Your latest analysis shows a ${burnout.burnoutLevel} risk level. ${planner?.recommendedLoad < 50 ? "Rest is advised." : "Keep it up!"}`
+              : "No burnout data available. Complete a session to see your risk.",
           },
           statusBanner: planner
             ? {

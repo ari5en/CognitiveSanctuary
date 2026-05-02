@@ -142,6 +142,22 @@ const SessionsPage = () => {
     }
   };
 
+  const handleToggleTaskInSession = async (task) => {
+    try {
+      const newStatus = task.status === "Completed" ? "InProgress" : "Completed";
+      await updateTask(task.taskId || task.task_id, { 
+        title: task.title, 
+        estimatedTime: task.estimatedTime || task.estimated_time, 
+        status: newStatus 
+      });
+      
+      const tasks = await getTasksByUser(1);
+      setAvailableTasks(tasks);
+    } catch (err) {
+      console.error("Failed to update task status:", err);
+    }
+  };
+
   const handleEndSession = async ({ completed, duration }) => {
     try {
       const endTime = new Date().toISOString();
@@ -178,6 +194,8 @@ const SessionsPage = () => {
     }
   };
 
+  const activeTasks = availableTasks.filter(t => selectedTaskIds.includes(t.taskId || t.task_id));
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -198,7 +216,9 @@ const SessionsPage = () => {
           {isActiveSession ? (
             <SessionTimer
               initialMinutes={studyHours * 60}
+              tasks={activeTasks}
               onEnd={handleEndSession}
+              onTaskToggle={handleToggleTaskInSession}
             />
           ) : (
             <Card className="space-y-7">

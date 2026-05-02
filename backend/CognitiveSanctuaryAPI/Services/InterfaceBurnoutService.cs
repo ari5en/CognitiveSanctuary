@@ -9,4 +9,7 @@ public interface InterfaceBurnoutService
     string GetStudyState(double score);
     string EvaluateRisk();
     Task SaveBurnoutRecordAsync(int sessionId, double score, string burnoutLevel);
+    Task<BurnoutRecordData?> GetLatestRecordByUserAsync(int userId);
 }
+
+public record BurnoutRecordData(double Score, string BurnoutLevel, DateTime RecordedAt);

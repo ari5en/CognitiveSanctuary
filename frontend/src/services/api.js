@@ -90,3 +90,7 @@ export async function deleteTask(taskId) {
     method: "DELETE",
   });
 }
+
+export async function getLatestBurnoutByUser(userId) {
+  return request(`/api/burnout/user/${userId}`);
+}
