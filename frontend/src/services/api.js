@@ -57,9 +57,11 @@ export async function saveBurnoutRecord(payload) {
 }
 
 export async function savePlanner(payload) {
-  return request("/api/planner", {
+  return request("/api/planner/user/1", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      RecommendedLoad: payload.RecommendedLoad || payload.recommendedLoad
+    }),
   });
 }
 

@@ -4,15 +4,14 @@
 The backend is built using **ASP.NET Core** following a clean, UML-aligned and minimal service-oriented structure.
 
 ### Core Controllers
-- **SessionsController**: Handles session creation and basic updates (start time, end time, task linking).
-- **PlannerController**: Handles task creation and retrieval for user planning.
-- **BurnoutController**: Handles saving and retrieving burnout records.
+- **SessionsController**: Handles session creation and basic updates.
+- **PlannerController**: Handles task creation using user-specific links (e.g., `/api/planner/user/1/tasks`).
+- **BurnoutController**: Handles burnout records. It now gives a "Stable" starting point for new users so the dashboard always works without errors.
 
 ### Service Layer
-- Acts as a **thin wrapper over Supabase REST API** using `HttpClient`.
-- Responsibilities are limited to basic **CRUD operations only**.
-- All advanced logic such as session recovery, dashboard aggregation, and strict workflow validation has been removed to maintain academic simplicity.
-- Backend now focuses purely on **data persistence and retrieval aligned with UML models**.
+- Acts as a **thin wrapper over Supabase**.
+- It only handles basic **saving and getting of data**.
+- All advanced features are handled by the frontend, keeping the backend simple and easy to understand for academic review.
 
 ---
 

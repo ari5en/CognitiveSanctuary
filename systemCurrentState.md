@@ -5,13 +5,13 @@ The backend is built using **ASP.NET Core** and follows a modular, service-orien
 
 ### Core Controllers
 - **SessionsController**: Manages focus session lifecycles (Creation, Start/End Time updates, and task linking).
-- **PlannerController**: Handles the planning phase, specifically task creation and management.
-- **BurnoutController**: Manages mental state records and burnout risk scores.
+- **PlannerController**: Handles the planning phase, using user-specific routes (e.g., `POST /api/planner/user/{userId}/tasks`) for better REST alignment and ownership tracking.
+- **BurnoutController**: Manages mental state records. The `GET` endpoint now returns a **baseline record** (Stable/0 score) for new users to ensure a continuous data flow without console errors.
 
 ### Service Layer
 - **Role**: Thin abstraction layer between the controllers and the Supabase database.
 - **Implementation**: Services (e.g., `StudySessionService`) use `HttpClient` to communicate with the Supabase REST API. 
-- **Simplification**: All "production-heavy" features like state recovery engines, dashboard aggregation, and complex backend validation workflows have been removed. The services now focus on clean CRUD operations and essential domain logic.
+- **Business Logic**: Stripped of complex validation; focuses on domain CRUD. The frontend acts as the orchestrator of business flow and navigation, ensuring strict separation of concerns.
 
 ---
 
