@@ -3,8 +3,8 @@ import { Play, Pause, Square, CheckCircle } from "lucide-react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 
-const SessionTimer = ({ initialMinutes, tasks, onEnd, onTaskToggle }) => {
-  const [secondsLeft, setSecondsLeft] = useState(initialMinutes * 60);
+const SessionTimer = ({ initialMinutes, resumedSecondsLeft, tasks, onEnd, onTaskToggle }) => {
+  const [secondsLeft, setSecondsLeft] = useState(resumedSecondsLeft !== undefined ? resumedSecondsLeft : initialMinutes * 60);
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {

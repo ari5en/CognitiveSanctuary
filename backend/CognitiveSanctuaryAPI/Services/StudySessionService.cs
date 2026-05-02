@@ -140,6 +140,17 @@ public class StudySessionService : InterfaceStudySessionService
         using var response = await _httpClient.DeleteAsync($"study_tasks?task_id=eq.{taskId}");
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task<StudySession?> GetActiveSessionAsync(int userId)
+    {
+        // Find session where start_time is set but end_time is null
+        var url = $"study_sessions?user_id=eq.{userId}&start_time=not.is.null&end_time=is.null&order=session_id.desc&limit=1";
+        var response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+
+        var rows = await response.Content.ReadFromJsonAsync<List<StudySessionRow>>(JsonOptions) ?? new List<StudySessionRow>();
+        return rows is { Count: > 0 } ? MapSession(rows[0]) : null;
+    }
     private sealed class StudyTaskUpdate
     {
         public string title { get; set; } = string.Empty;
