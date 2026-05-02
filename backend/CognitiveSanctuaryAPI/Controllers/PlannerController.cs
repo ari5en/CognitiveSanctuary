@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using CognitiveSanctuaryAPI.DTOs;
+using CognitiveSanctuaryAPI.Models;
 using CognitiveSanctuaryAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,10 +19,10 @@ public sealed class PlannerController : ControllerBase
         _sessionService = sessionService;
     }
 
-    [HttpPost]
-    public async Task<IActionResult> SavePlanner([FromBody] PlannerCreateRequest request)
+    [HttpPost("user/{userId:int}")]
+    public async Task<IActionResult> SavePlanner(int userId, [FromBody] PlannerCreateRequest request)
     {
-        if (request.UserId <= 0)
+        if (userId <= 0)
         {
             return BadRequest("UserId must be greater than 0.");
         }
@@ -31,7 +32,7 @@ public sealed class PlannerController : ControllerBase
             return BadRequest("RecommendedLoad cannot be negative.");
         }
 
-        await _plannerService.SavePlannerAsync(request.UserId, request.RecommendedLoad);
+        await _plannerService.SavePlannerAsync(userId, request.RecommendedLoad);
         return Ok();
     }
 
@@ -60,14 +61,14 @@ public sealed class PlannerController : ControllerBase
         return Ok(tasks);
     }
 
-    [HttpPost("tasks")]
-    public async Task<IActionResult> AddTask([FromBody] TaskCreateRequest request)
+    [HttpPost("user/{userId:int}/tasks")]
+    public async Task<IActionResult> AddTask(int userId, [FromBody] TaskCreateRequest request)
     {
-        var sessions = await _sessionService.GetSessionsByUserAsync(request.UserId);
+        var sessions = await _sessionService.GetSessionsByUserAsync(userId);
         int sessionId;
         if (sessions.Count == 0)
         {
-            var newSession = await _sessionService.CreateSessionAsync(request.UserId, 0);
+            var newSession = await _sessionService.CreateSessionAsync(userId, 0);
             sessionId = newSession.sessionId;
         }
         else

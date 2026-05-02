@@ -71,10 +71,13 @@ export async function getTasksByUser(userId) {
   return request(`/api/planner/user/${userId}/tasks`);
 }
 
-export async function addTask(payload) {
-  return request("/api/planner/tasks", {
+export async function addTask(taskData) {
+  return request(`/api/planner/user/1/tasks`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      Title: taskData.Title || taskData.title,
+      EstimatedTime: taskData.EstimatedTime || taskData.estimated_time || 30,
+    }),
   });
 }
 
