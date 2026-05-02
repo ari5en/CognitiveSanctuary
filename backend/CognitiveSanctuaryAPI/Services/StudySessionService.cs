@@ -117,6 +117,35 @@ public class StudySessionService : InterfaceStudySessionService
 
         return result;
     }
+
+    public async Task UpdateTaskAsync(int taskId, StudyTask task)
+    {
+        var payload = new StudyTaskUpdate
+        {
+            title = task.title,
+            estimated_time = task.estimatedTime,
+            status = task.status,
+        };
+
+        using var request = new HttpRequestMessage(new HttpMethod("PATCH"), $"study_tasks?task_id=eq.{taskId}");
+        request.Headers.Add("Prefer", "return=representation");
+        request.Content = JsonContent.Create(payload);
+
+        using var response = await _httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteTaskAsync(int taskId)
+    {
+        using var response = await _httpClient.DeleteAsync($"study_tasks?task_id=eq.{taskId}");
+        response.EnsureSuccessStatusCode();
+    }
+    private sealed class StudyTaskUpdate
+    {
+        public string title { get; set; } = string.Empty;
+        public double estimated_time { get; set; }
+        public string status { get; set; } = string.Empty;
+    }
     private sealed class StudyTaskRow
     {
         public int task_id { get; set; }

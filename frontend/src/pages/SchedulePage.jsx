@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
-import { getPlannerByUser, getSessionsByUser, getTasksByUser, addTaskToSession, createSession } from "../services/api";
+import { getPlannerByUser, getSessionsByUser, getTasksByUser, addTask, updateTask, deleteTask } from "../services/api";
 
 // Schedule Components
 import ScheduleHeader from "../components/schedule/ScheduleHeader";
@@ -75,27 +75,9 @@ const SchedulePage = () => {
   }, []);
 
   const handleAddTask = async (title) => {
-    setError(""); // Clear previous errors
+    setError("");
     try {
-      let sessions = await getSessionsByUser(1);
-      let sessionId;
-      
-      if (!sessions || sessions.length === 0) {
-        const newSession = await createSession({ userId: 1, breakCount: 0 });
-        sessionId = newSession.sessionId;
-      } else {
-        sessionId = sessions[0].sessionId;
-      }
-
-      if (!sessionId) throw new Error("Could not determine session ID");
-
-      await addTaskToSession(sessionId, {
-        title,
-        estimatedTime: 30,
-        status: "Pending"
-      });
-
-      // Refresh tasks immediately
+      await addTask({ userId: 1, title, estimatedTime: 30 });
       const updatedTasks = await getTasksByUser(1);
       const mappedTasks = updatedTasks.map((t, idx) => ({
         id: t.taskId || t.task_id || idx,
@@ -105,16 +87,44 @@ const SchedulePage = () => {
         duration: `${t.estimatedTime || t.estimated_time || 30} mins`,
         icon: "sigma",
       }));
-      
+      setScheduleData(prev => ({ ...prev, priorityTasks: mappedTasks }));
+    } catch (err) {
+      setError("Failed to add task.");
+    }
+  };
+
+  const handleEditTask = async (task) => {
+    const newTitle = prompt("Enter new title:", task.title);
+    if (!newTitle) return;
+    try {
+      await updateTask(task.id, { title: newTitle, estimatedTime: 30, status: "Pending" });
+      const updatedTasks = await getTasksByUser(1);
       setScheduleData(prev => ({ 
         ...prev, 
-        priorityTasks: mappedTasks 
+        priorityTasks: updatedTasks.map((t, idx) => ({
+          id: t.taskId || t.task_id || idx,
+          title: t.title,
+          subject: "FOCUS", 
+          subjectColor: "green",
+          duration: `${t.estimatedTime || t.estimated_time || 30} mins`,
+          icon: "sigma",
+        }))
       }));
-      
-      setError(""); // Success
     } catch (err) {
-      console.error("Error adding task:", err);
-      setError("Failed to add task. Please try again.");
+      setError("Failed to update task.");
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!confirm("Are you sure?")) return;
+    try {
+      await deleteTask(taskId);
+      setScheduleData(prev => ({
+        ...prev,
+        priorityTasks: prev.priorityTasks.filter(t => t.id !== taskId)
+      }));
+    } catch (err) {
+      setError("Failed to delete task.");
     }
   };
 
@@ -139,7 +149,12 @@ const SchedulePage = () => {
             message={scheduleData.alert.message} 
           />
           
-          <PriorityFocus tasks={scheduleData.priorityTasks} onAddTask={handleAddTask} />
+          <PriorityFocus 
+            tasks={scheduleData.priorityTasks} 
+            onAddTask={handleAddTask} 
+            onEditTask={handleEditTask}
+            onDeleteTask={handleDeleteTask}
+          />
 
           <div className="flex items-center gap-3 py-2">
             <div className="flex-1 border-t border-dashed border-slate-200" />

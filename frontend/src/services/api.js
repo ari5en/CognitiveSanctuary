@@ -68,5 +68,25 @@ export async function getPlannerByUser(userId) {
 }
 
 export async function getTasksByUser(userId) {
-  return request(`/api/sessions/user/${userId}/tasks`);
+  return request(`/api/planner/user/${userId}/tasks`);
+}
+
+export async function addTask(payload) {
+  return request("/api/planner/tasks", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTask(taskId, payload) {
+  return request(`/api/planner/tasks/${taskId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteTask(taskId) {
+  return request(`/api/planner/tasks/${taskId}`, {
+    method: "DELETE",
+  });
 }

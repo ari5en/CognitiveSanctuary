@@ -52,4 +52,6 @@ public interface InterfaceStudySessionService
     Task AddTaskAsync(int sessionId, StudyTask task);
     Task<IReadOnlyList<StudySession>> GetSessionsByUserAsync(int userId);
     Task<IReadOnlyList<StudyTask>> GetTasksByUserAsync(int userId);
+    Task UpdateTaskAsync(int taskId, StudyTask task);
+    Task DeleteTaskAsync(int taskId);
 }

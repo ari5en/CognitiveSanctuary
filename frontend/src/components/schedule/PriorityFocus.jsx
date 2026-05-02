@@ -1,5 +1,5 @@
 import React from "react";
-import { Clock, Sigma, Microscope } from "lucide-react";
+import { Clock, Sigma, Microscope, Trash2, Edit2 } from "lucide-react";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
@@ -9,7 +9,7 @@ const taskIconMap = {
   microscope: <Microscope size={20} className="text-sanctuary-800" />,
 };
 
-const PriorityFocus = ({ tasks, onAddTask }) => {
+const PriorityFocus = ({ tasks, onAddTask, onEditTask, onDeleteTask }) => {
   const [newTitle, setNewTitle] = React.useState("");
 
   const handleSubmit = (e) => {
@@ -58,9 +58,23 @@ const PriorityFocus = ({ tasks, onAddTask }) => {
                 </span>
               </div>
             </div>
-            <Button variant="solid" size="sm" className="flex-shrink-0">
-              Start Focus
-            </Button>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => onEditTask(task)}
+                className="p-2 text-slate-400 hover:text-sanctuary-600 transition-colors"
+              >
+                <Edit2 size={16} />
+              </button>
+              <button 
+                onClick={() => onDeleteTask(task.id)}
+                className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+              >
+                <Trash2 size={16} />
+              </button>
+              <Button variant="solid" size="sm" className="flex-shrink-0">
+                Start Focus
+              </Button>
+            </div>
           </div>
         ))}
       </div>
