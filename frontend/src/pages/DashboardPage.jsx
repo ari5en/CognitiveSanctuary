@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { getDashboardData, getTasksByUser, getSessionsByUser } from "../services/api";
+import { getTasksByUser, getSessionsByUser, getPlannerByUser, getLatestBurnoutByUser } from "../services/api";
 
 // Dashboard Components
 import DashboardHeader from "../components/dashboard/DashboardHeader";

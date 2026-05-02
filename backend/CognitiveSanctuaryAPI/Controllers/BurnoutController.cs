@@ -40,7 +40,6 @@ public sealed class BurnoutController : ControllerBase
     {
         if (userId <= 0) return BadRequest("UserId must be greater than 0.");
         var record = await _burnoutService.GetLatestRecordByUserAsync(userId);
-        if (record == null) return NotFound("No burnout records found for this user.");
         return Ok(record);
     }
 }

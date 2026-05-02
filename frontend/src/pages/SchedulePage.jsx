@@ -178,7 +178,16 @@ const SchedulePage = () => {
       </div>
 
       {/* FAB */}
-      <button className="fixed bottom-8 right-8 w-12 h-12 bg-sanctuary-900 text-white rounded-full shadow-lg flex items-center justify-center z-20 transition-transform hover:scale-105 active:scale-95">
+      <button 
+        onClick={() => {
+          const input = document.getElementById("quick-add-task-input");
+          if (input) {
+            input.focus();
+            input.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }}
+        className="fixed bottom-8 right-8 w-12 h-12 bg-sanctuary-900 text-white rounded-full shadow-lg flex items-center justify-center z-20 transition-transform hover:scale-105 active:scale-95"
+      >
         <Plus size={20} />
       </button>
     </motion.div>

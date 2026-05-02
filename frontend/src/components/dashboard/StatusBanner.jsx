@@ -1,8 +1,10 @@
 import React from "react";
 import { CheckCircle2, Plus } from "lucide-react";
 import Button from "../ui/Button";
+import { useNavigate } from "react-router-dom";
 
 const StatusBanner = ({ statusBanner, error }) => {
+  const navigate = useNavigate();
   return (
     <div className="bg-white border border-slate-100 rounded-3xl p-5 mb-8 flex items-center justify-between shadow-sm">
       <div className="flex items-start gap-4">
@@ -19,7 +21,11 @@ const StatusBanner = ({ statusBanner, error }) => {
           {error ? <p className="text-xs text-rose-600 mt-2">{error}</p> : null}
         </div>
       </div>
-      <Button icon={<Plus size={18} />} className="px-6 py-3">
+      <Button 
+        icon={<Plus size={18} />} 
+        className="px-6 py-3"
+        onClick={() => navigate("/sessions")}
+      >
         Start Focus Session
       </Button>
     </div>

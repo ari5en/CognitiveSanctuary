@@ -5,7 +5,7 @@ import { Clock, LayoutGrid } from "lucide-react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 
-import { createSession, getSessionsByUser, getTasksByUser, addTaskToSession, updateSessionTimes, saveBurnoutRecord, getActiveSession, updateTask } from "../services/api";
+import { createSession, getSessionsByUser, getTasksByUser, addTaskToSession, updateSessionTimes, saveBurnoutRecord, updateTask } from "../services/api";
 import SessionTimer from "../components/sessions/SessionTimer";
 
 // Sessions Components
