@@ -120,6 +120,10 @@ const SessionsPage = () => {
   };
 
   const handleStartSession = async () => {
+    if (selectedTaskIds.length === 0) {
+      setError("Please select at least one task to focus on.");
+      return;
+    }
     setError("");
     setMessage("");
 

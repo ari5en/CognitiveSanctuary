@@ -116,13 +116,20 @@ const SchedulePage = () => {
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!confirm("Are you sure?")) return;
+    const taskToDelete = scheduleData.priorityTasks.find(t => t.id === taskId);
+    if (taskToDelete && (taskToDelete.status === "InProgress" || taskToDelete.status === "Completed")) {
+      setError(`Cannot delete a task that is ${taskToDelete.status}.`);
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this task? This action cannot be undone.")) return;
     try {
       await deleteTask(taskId);
       setScheduleData(prev => ({
         ...prev,
         priorityTasks: prev.priorityTasks.filter(t => t.id !== taskId)
       }));
+      setError("");
     } catch (err) {
       setError("Failed to delete task.");
     }

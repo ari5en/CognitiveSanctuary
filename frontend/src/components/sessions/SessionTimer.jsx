@@ -53,7 +53,10 @@ const SessionTimer = ({ initialMinutes, resumedSecondsLeft, tasks, onEnd, onTask
         <Button 
           variant="solid" 
           className="px-8 rounded-full h-14 shadow-md" 
-          onClick={() => onEnd({ completed: false, duration: Math.floor((initialMinutes * 60 - secondsLeft) / 60) })}
+          onClick={() => {
+            if (secondsLeft > 10 && !confirm("The session is still active. Are you sure you want to end it now?")) return;
+            onEnd({ completed: false, duration: Math.floor((initialMinutes * 60 - secondsLeft) / 60) });
+          }}
         >
           <Square size={18} className="mr-2" />
           End Session
