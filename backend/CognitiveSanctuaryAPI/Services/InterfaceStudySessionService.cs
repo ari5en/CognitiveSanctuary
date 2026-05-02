@@ -14,6 +14,36 @@ namespace CognitiveSanctuaryAPI.Services;
 //the methods in the service files 
 // to execute the logic and return the response to the client.
 
+// The "I" in the file name means Interface.  
+// Interface files define what methods should exist in the service files.  
+
+// Then the service files are the ones that put the logic inside those methods.  
+// The logic inside the service methods is implemented inside the service class itself,  
+// while Models are only used as data structures.  
+
+// Then the controller files are the ones that call the methods in the service files  
+// in order to execute the logic and return a response back to the client.
+
+// Client (Frontend / Postman)
+//     ↓
+// HTTP Request (API Endpoint)
+//     ↓
+// Controller (Receives & validates request)
+//     ↓
+// DTO (Transforms request data)
+//     ↓
+// Service Layer (Business logic execution)
+//     ↓
+// HttpClient
+//     ↓
+// Supabase REST API
+//     ↓
+// Database
+//     ↓
+// Response returned to Controller
+//     ↓
+// Client receives response
+
 
 public interface InterfaceStudySessionService
 {

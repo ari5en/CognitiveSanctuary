@@ -1,6 +1,25 @@
 using System.Net.Http.Headers;
 
+// =====================================================
+// LOAD ENVIRONMENT VARIABLES FROM .ENV FILE
+// =====================================================
+// This manually reads the .env file from the root directory
+// and sets them as environment variables so builder.Configuration can find them.
+var envPath = Path.Combine(Directory.GetCurrentDirectory(), "../../.env");
+if (File.Exists(envPath))
+{
+    foreach (var line in File.ReadAllLines(envPath))
+    {
+        var parts = line.Split('=', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 2)
+        {
+            Environment.SetEnvironmentVariable(parts[0], parts[1].Trim());
+        }
+    }
+}
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddEnvironmentVariables(); // Ensure env vars are picked up
 
 /*
 =====================================================
@@ -16,6 +35,21 @@ builder.Services.AddControllers();
 
 // Registers OpenAPI/Swagger support (API documentation UI)
 builder.Services.AddOpenApi();
+
+// =====================================================
+// CORS CONFIGURATION
+// =====================================================
+// This allows your React frontend (port 5173) to talk to this API.
+// Without this, the browser will block requests for security reasons.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 /*
 These values come from appsettings.json or environment variables.
@@ -117,6 +151,7 @@ These define how HTTP requests are processed.
 
 // Redirect HTTP → HTTPS
 app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
 
 // Map controller routes (enables API endpoints)
 app.MapControllers();
