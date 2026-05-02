@@ -25,6 +25,13 @@ public class StudySessionService : InterfaceStudySessionService
 
     public async Task<StudySession> CreateSessionAsync(int userId, int breakCount)
     {
+        // 🛡️ Validation: Prevent multiple active sessions
+        var active = await GetActiveSessionAsync(userId);
+        if (active != null)
+        {
+            throw new InvalidOperationException("User already has an active focus session.");
+        }
+
         var payload = new StudySessionInsert
         {
             user_id = userId,
@@ -68,6 +75,13 @@ public class StudySessionService : InterfaceStudySessionService
 
     public async Task AddTaskAsync(int sessionId, StudyTask task)
     {
+        // 🛡️ Validation: Session must exist
+        var checkResp = await _httpClient.GetAsync($"study_sessions?session_id=eq.{sessionId}&select=session_id");
+        if (!checkResp.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException("Target session does not exist.");
+        }
+
         var payload = new StudyTaskInsert
         {
             session_id = sessionId,
@@ -120,6 +134,25 @@ public class StudySessionService : InterfaceStudySessionService
 
     public async Task UpdateTaskAsync(int taskId, StudyTask task)
     {
+        // 🛡️ Validation: Task Status Workflow
+        var currentResp = await _httpClient.GetAsync($"study_tasks?task_id=eq.{taskId}&select=status");
+        if (currentResp.IsSuccessStatusCode)
+        {
+            var currentTasks = await currentResp.Content.ReadFromJsonAsync<List<StudyTaskRow>>(JsonOptions);
+            if (currentTasks is { Count: > 0 })
+            {
+                var currentStatus = currentTasks[0].status;
+                if (currentStatus == "Completed" && task.status != "Completed")
+                {
+                    throw new InvalidOperationException("Completed tasks cannot be reverted.");
+                }
+                if (currentStatus == "Pending" && task.status == "Completed") // Note: UI uses "Pending" or "Planned"
+                {
+                    throw new InvalidOperationException("Tasks must be InProgress before being Completed.");
+                }
+            }
+        }
+
         var payload = new StudyTaskUpdate
         {
             title = task.title,
