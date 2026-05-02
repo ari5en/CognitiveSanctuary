@@ -17,7 +17,6 @@
 ## 🛠️ Tech Stack
 
 ### Frontend
-
 - **Framework:** [React](https://reactjs.org/) (via [Vite](https://vitejs.dev/))
 - **Styling:** [Tailwind CSS](https://tailwindcss.com/)
 - **Icons:** [Lucide React](https://lucide.dev/)

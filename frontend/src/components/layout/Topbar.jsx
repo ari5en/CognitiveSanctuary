@@ -1,6 +1,9 @@
-import React from 'react';
-import { Bell, Search } from 'lucide-react';
-import { mockUser } from '../../data/mockData';
+import React from "react";
+import { Bell, Search } from "lucide-react";
+
+const currentUser = {
+  avatar: "A",
+};
 
 const Topbar = () => {
   return (
@@ -28,7 +31,7 @@ const Topbar = () => {
 
         {/* Avatar */}
         <button className="w-9 h-9 rounded-full bg-sanctuary-900 text-white text-sm font-semibold flex items-center justify-center hover:bg-sanctuary-800 transition-colors duration-150 ring-2 ring-sanctuary-200">
-          {mockUser.avatar}
+          {currentUser.avatar}
         </button>
       </div>
     </header>
