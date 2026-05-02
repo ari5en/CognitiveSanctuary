@@ -2,8 +2,6 @@ import React from "react";
 import { Clock, Sigma, Microscope, Trash2, Edit2 } from "lucide-react";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
-import Button from "../ui/Button";
-import { useNavigate } from "react-router-dom";
 
 const taskIconMap = {
   sigma: <Sigma size={20} className="text-sanctuary-800" />,
@@ -11,7 +9,6 @@ const taskIconMap = {
 };
 
 const PriorityFocus = ({ tasks, onAddTask, onEditTask, onDeleteTask }) => {
-  const navigate = useNavigate();
   const [newTitle, setNewTitle] = React.useState("");
 
   const handleSubmit = (e) => {
@@ -74,14 +71,6 @@ const PriorityFocus = ({ tasks, onAddTask, onEditTask, onDeleteTask }) => {
               >
                 <Trash2 size={16} />
               </button>
-              <Button 
-                variant="solid" 
-                size="sm" 
-                className="flex-shrink-0"
-                onClick={() => navigate("/sessions")}
-              >
-                Start Focus
-              </Button>
             </div>
           </div>
         ))}
