@@ -16,10 +16,12 @@ public class StudyPlannerService : InterfaceStudyPlannerService
     };
 
     private readonly HttpClient _httpClient;
+    private readonly InterfaceBurnoutService _burnoutService;
 
-    public StudyPlannerService(HttpClient httpClient)
+    public StudyPlannerService(HttpClient httpClient, InterfaceBurnoutService burnoutService)
     {
         _httpClient = httpClient;
+        _burnoutService = burnoutService;
     }
 
     public StudyPlanner CreatePlanner()
@@ -60,17 +62,22 @@ public class StudyPlannerService : InterfaceStudyPlannerService
 
     public async Task<StudyPlanner?> GetPlannerByUserAsync(int userId)
     {
+        // 1. Fetch the latest burnout record to determine current load capacity
+        var burnoutData = await _burnoutService.GetLatestRecordByUserAsync(userId);
+        
+        // 2. Fetch the existing planner record
         var response = await _httpClient.GetAsync($"study_planner?user_id=eq.{userId}&select=*");
         response.EnsureSuccessStatusCode();
 
         var rows = await response.Content.ReadFromJsonAsync<List<StudyPlannerRow>>(JsonOptions) ?? new List<StudyPlannerRow>();
-        if (rows.Count == 0)
-        {
-            return null;
-        }
-
+        
         var planner = new StudyPlanner();
-        planner.adjustSchedule(rows[0].recommended_load);
+        
+        // 3. Adjust the planner based on the latest burnout score
+        planner.adjustSchedule(burnoutData.Score);
+        
+        // 4. If the planner exists and the load has changed significantly, we could sync it back.
+        // For now, we return the adjusted planner object.
         return planner;
     }
 

@@ -32,7 +32,19 @@ public class StudyPlanner
 
     public void adjustSchedule(double score)
     {
-        _recommendedLoad = score;
+        // Deterministic Load Calculation based on Burnout Score
+        if (score < 40)
+        {
+            _recommendedLoad = 100; // Normal load
+        }
+        else if (score < 75)
+        {
+            _recommendedLoad = 60;  // Reduced load (Warning)
+        }
+        else
+        {
+            _recommendedLoad = 30;  // Minimal load (Critical)
+        }
     }
 
     public void optimizePlan()
