@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus } from "lucide-react";
+import { Plus, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { getPlannerByUser, getSessionsByUser, getTasksByUser, addTask, updateTask, deleteTask } from "../services/api";
 
 // Schedule Components
@@ -27,6 +28,7 @@ const defaultScheduleData = {
 };
 
 const SchedulePage = () => {
+  const navigate = useNavigate();
   const [scheduleData, setScheduleData] = useState(defaultScheduleData);
   const [error, setError] = useState("");
 
@@ -168,6 +170,17 @@ const SchedulePage = () => {
           </div>
 
           <RestMode tasks={scheduleData.restModeTasks} />
+
+          {/* PLAN → EXECUTE handoff button */}
+          {scheduleData.priorityTasks.length > 0 && (
+            <button
+              onClick={() => navigate("/sessions")}
+              className="w-full flex items-center justify-center gap-2 py-3.5 bg-sanctuary-900 text-white font-semibold rounded-xl hover:bg-sanctuary-800 active:scale-[0.98] transition-all shadow-sm"
+            >
+              Ready to Focus
+              <ArrowRight size={18} />
+            </button>
+          )}
         </div>
 
         {/* RIGHT SIDEBAR */}
@@ -177,8 +190,15 @@ const SchedulePage = () => {
         </div>
       </div>
 
-      {/* FAB */}
-      <button className="fixed bottom-8 right-8 w-12 h-12 bg-sanctuary-900 text-white rounded-full shadow-lg flex items-center justify-center z-20 transition-transform hover:scale-105 active:scale-95">
+      {/* FAB — focuses the quick-add task input */}
+      <button
+        onClick={() => {
+          const input = document.getElementById("quick-add-task-input");
+          if (input) { input.focus(); input.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        }}
+        title="Quick add task"
+        className="fixed bottom-8 right-8 w-12 h-12 bg-sanctuary-900 text-white rounded-full shadow-lg flex items-center justify-center z-20 transition-transform hover:scale-105 active:scale-95"
+      >
         <Plus size={20} />
       </button>
     </motion.div>
