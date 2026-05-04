@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { getTasksByUser, getSessionsByUser, getPlannerByUser, getLatestBurnoutByUser } from "../services/api";
 
 // Dashboard Components
@@ -65,9 +66,17 @@ const defaultDashboardData = {
 };
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(defaultDashboardData);
   const [error, setError] = useState("");
   const [user, setUser] = useState(null);
+
+  // REFLECT → PLAN: route Quick Actions back into the lifecycle
+  const handleQuickAction = (actionId) => {
+    if (actionId === "new-task") navigate("/schedule");
+    else if (actionId === "review") navigate("/sessions");
+    // "unwind" and "reports" are display-only for now
+  };
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user") || '{"name": "Alex", "id": 1}');
@@ -180,7 +189,10 @@ const DashboardPage = () => {
           
           <div className="flex gap-6 mt-6">
             <Milestones milestones={dashboardData.milestones} />
-            <QuickActions quickActions={dashboardData.quickActions} />
+            <QuickActions
+              quickActions={dashboardData.quickActions}
+              onAction={handleQuickAction}
+            />
           </div>
         </div>
 
