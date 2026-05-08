@@ -105,19 +105,30 @@ Flow:
 Controller → Service → HttpClient → Supabase API
 */
 
-// Study Session service registration
-builder.Services.AddHttpClient<
-    CognitiveSanctuaryAPI.Services.InterfaceStudySessionService,
-    CognitiveSanctuaryAPI.Services.StudySessionService
->(client => ConfigureSupabaseClient(client));
+/*
+=====================================================
+ SERVICE REGISTRATIONS — ORDER MATTERS
+=====================================================
+ Dependency chain (no circular refs):
+   BurnoutService        ← no service deps
+   StudySessionService   ← depends on BurnoutService
+   StudyPlannerService   ← depends on BurnoutService + StudySessionService
+*/
 
-// Burnout service registration
+// 1. Burnout service — no dependencies on other custom services
 builder.Services.AddHttpClient<
     CognitiveSanctuaryAPI.Services.InterfaceBurnoutService,
     CognitiveSanctuaryAPI.Services.BurnoutService
 >(client => ConfigureSupabaseClient(client));
 
-// Study Planner service registration
+// 2. Study Session service — depends on BurnoutService + StudyPlannerService.
+//    StudyPlannerService is registered after, but .NET DI resolves lazily at runtime.
+builder.Services.AddHttpClient<
+    CognitiveSanctuaryAPI.Services.InterfaceStudySessionService,
+    CognitiveSanctuaryAPI.Services.StudySessionService
+>(client => ConfigureSupabaseClient(client));
+
+// 3. Study Planner service — depends on BurnoutService + StudySessionService
 builder.Services.AddHttpClient<
     CognitiveSanctuaryAPI.Services.InterfaceStudyPlannerService,
     CognitiveSanctuaryAPI.Services.StudyPlannerService

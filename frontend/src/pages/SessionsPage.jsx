@@ -1,59 +1,145 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, LayoutGrid, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Coffee, Square } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 
-import {
-  createSession,
-  getSessionsByUser,
-  getTasksByUser,
-  addTaskToSession,
-  updateSessionTimes,
-  saveBurnoutRecord,
-  updateTask,
-} from "../services/api";
-import SessionTimer from "../components/sessions/SessionTimer";
+import { completeSession, getSessionsByUser } from "../services/api";
 
 // Sessions Components
 import SessionHeader from "../components/sessions/SessionHeader";
-import NumberInput from "../components/sessions/NumberInput";
 import MentalStateSelector from "../components/sessions/MentalStateSelector";
-import BurnoutPrediction from "../components/sessions/BurnoutPrediction";
-import TriviaCard from "../components/sessions/TriviaCard";
-import SessionStats from "../components/sessions/SessionStats";
-import RecentSessions from "../components/sessions/RecentSessions";
-import TaskSelector from "../components/sessions/TaskSelector";
 
 const defaultSessionData = {
-  title: "Configure Session",
-  subtitle:
-    "Personalize your deep work environment for maximum cognitive efficiency.",
-  defaults: { studyHours: 2 },
+  title: "Session Execution",
+  subtitle: "Follow the adaptive focus and break cycle for this study session.",
   mentalStates: [
-    { id: "Happy", emoji: "😊", label: "Happy" },
-    { id: "Neutral", emoji: "😐", label: "Neutral" },
-    { id: "Tired", emoji: "😟", label: "Tired" },
-    { id: "Exhausted", emoji: "🤯", label: "Exhausted" },
+    { id: 1, emoji: "😊", label: "Happy" },
+    { id: 2, emoji: "😐", label: "Neutral" },
+    { id: 3, emoji: "😟", label: "Tired" },
+    { id: 4, emoji: "🤯", label: "Exhausted" },
   ],
-  burnoutPrediction: {
-    riskLevel: "Low",
-    riskPercent: 12,
-    recommendation:
-      "Your current energy levels are optimal. Consider a 50-minute Pomodoro cycle to maintain this momentum.",
-    cognitiveLoad: "Normal",
-    estimatedRecovery: "15 min",
-  },
-  trivia: "Drinking 250ml of water every 60 minutes improves focus by 14%.",
-  stats: { totalSessions: 142, avgHours: 4.8 },
+};
+
+const Phase = {
+  Focus: "FOCUS",
+  BreakPrompt: "BREAK_PROMPT",
+  Break: "BREAK",
+  Evaluation: "EVALUATION",
+};
+
+const formatTime = (totalSeconds) => {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins.toString().padStart(2, "0")}:${secs
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+const FocusTimer = ({ secondsLeft, totalSeconds, onEnd }) => {
+  const progress =
+    totalSeconds > 0 ? ((totalSeconds - secondsLeft) / totalSeconds) * 100 : 0;
+
+  return (
+    <Card className="flex flex-col items-center justify-center py-12 space-y-6 relative overflow-hidden">
+      <div
+        className="absolute top-0 left-0 h-1 bg-sanctuary-500 transition-all duration-1000"
+        style={{ width: `${progress}%` }}
+      />
+      <div className="text-center space-y-2">
+        <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">
+          Focus Session
+        </h3>
+        <div className="text-7xl font-light text-slate-800 tracking-tighter tabular-nums">
+          {formatTime(secondsLeft)}
+        </div>
+      </div>
+      <Button
+        variant="solid"
+        className="px-8 rounded-full h-14 shadow-md"
+        onClick={onEnd}
+      >
+        <Square size={18} className="mr-2" />
+        End Session
+      </Button>
+    </Card>
+  );
+};
+
+const BreakTimer = ({ secondsLeft, totalSeconds, onEnd }) => {
+  const progress =
+    totalSeconds > 0 ? ((totalSeconds - secondsLeft) / totalSeconds) * 100 : 0;
+
+  return (
+    <Card className="flex flex-col items-center justify-center py-12 space-y-6 relative overflow-hidden">
+      <div
+        className="absolute top-0 left-0 h-1 bg-emerald-500 transition-all duration-1000"
+        style={{ width: `${progress}%` }}
+      />
+      <div className="text-center space-y-2">
+        <h3 className="text-emerald-600 text-xs font-bold uppercase tracking-[0.2em]">
+          Break Time
+        </h3>
+        <div className="text-7xl font-light text-slate-800 tracking-tighter tabular-nums">
+          {formatTime(secondsLeft)}
+        </div>
+      </div>
+      <Button
+        variant="outline"
+        className="px-8 rounded-full h-14"
+        onClick={onEnd}
+      >
+        <Square size={18} className="mr-2" />
+        End Session
+      </Button>
+    </Card>
+  );
+};
+
+const BreakPrompt = ({ onTakeBreak, onSkipBreak, onEnd }) => {
+  return (
+    <Card className="flex flex-col items-center justify-center py-12 space-y-6">
+      <div className="text-center space-y-2">
+        <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">
+          Break Prompt
+        </h3>
+        <div className="text-3xl font-semibold text-slate-800">
+          Take a short recovery break?
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="solid"
+          className="px-6 rounded-full h-12"
+          onClick={onTakeBreak}
+        >
+          <Coffee size={16} className="mr-2" />
+          Take Break
+        </Button>
+        <Button
+          variant="outline"
+          className="px-6 rounded-full h-12"
+          onClick={onSkipBreak}
+        >
+          Skip Break
+        </Button>
+        <Button
+          variant="ghost"
+          className="px-6 rounded-full h-12"
+          onClick={onEnd}
+        >
+          End Session
+        </Button>
+      </div>
+    </Card>
+  );
 };
 
 // ─── Evaluation Modal ────────────────────────────────────────────────────────
 const EvaluationModal = ({ mentalStates, onSubmit, isSubmitting }) => {
-  const [mood, setMood] = useState("Happy");
-  const [breaksSkipped, setBreaksSkipped] = useState(0);
+  const [mood, setMood] = useState(2);
 
   return (
     <AnimatePresence>
@@ -74,35 +160,19 @@ const EvaluationModal = ({ mentalStates, onSubmit, isSubmitting }) => {
         >
           {/* Header */}
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-slate-800">Session Complete 🎉</h2>
+            <h2 className="text-xl font-bold text-slate-800">
+              Session Complete 🎉
+            </h2>
             <p className="text-sm text-slate-500 mt-1">
               How did the session go? This helps us calculate your burnout risk.
             </p>
           </div>
 
-          {/* Mood */}
-          <div className="mb-6">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
-              How are you feeling?
-            </label>
+          <div className="mb-8">
             <MentalStateSelector
               mentalStates={mentalStates}
               currentMood={mood}
               onChange={setMood}
-            />
-          </div>
-
-          {/* Breaks Skipped */}
-          <div className="mb-8">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
-              Breaks Skipped
-            </label>
-            <NumberInput
-              icon={<LayoutGrid size={16} />}
-              value={breaksSkipped}
-              onChange={setBreaksSkipped}
-              min={0}
-              max={10}
             />
           </div>
 
@@ -112,7 +182,7 @@ const EvaluationModal = ({ mentalStates, onSubmit, isSubmitting }) => {
             size="lg"
             fullWidth
             className="py-4 text-base font-semibold rounded-xl"
-            onClick={() => onSubmit({ mood, breaksSkipped })}
+            onClick={() => onSubmit({ mood })}
             disabled={isSubmitting}
           >
             {isSubmitting ? "Saving…" : "Save & View Dashboard →"}
@@ -126,19 +196,14 @@ const EvaluationModal = ({ mentalStates, onSubmit, isSubmitting }) => {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 const SessionsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [studyHours, setStudyHours] = useState(
-    defaultSessionData.defaults.studyHours
-  );
-
-  const [recentSessions, setRecentSessions] = useState([]);
-  const [availableTasks, setAvailableTasks] = useState([]);
-  const [selectedTaskIds, setSelectedTaskIds] = useState([]);
-
-  const [isActiveSession, setIsActiveSession] = useState(false);
-  const [activeSessionData, setActiveSessionData] = useState(null);
+  const [session, setSession] = useState(null);
+  const [phase, setPhase] = useState(Phase.Focus);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [focusElapsedSeconds, setFocusElapsedSeconds] = useState(0);
+  const [breaksSkipped, setBreaksSkipped] = useState(0);
   const [sessionStartTime, setSessionStartTime] = useState(null);
-  const [sessionDuration, setSessionDuration] = useState(0);
 
   // Evaluation modal state
   const [showEvalModal, setShowEvalModal] = useState(false);
@@ -147,130 +212,139 @@ const SessionsPage = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const sessionIdFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("sessionId");
+    const parsed = raw ? Number(raw) : null;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [location.search]);
+
+  const focusSeconds = Math.max(
+    1,
+    Math.round(
+      (session?.plannedFocusDuration || session?.planned_focus_duration || 45) *
+        60,
+    ),
+  );
+  const breakSeconds = Math.max(
+    1,
+    Math.round(
+      (session?.plannedBreakDuration || session?.planned_break_duration || 10) *
+        60,
+    ),
+  );
+
   useEffect(() => {
     let isMounted = true;
 
-    const loadInitialData = async () => {
+    const loadSession = async () => {
       try {
-        const [sessions, tasks] = await Promise.all([
-          getSessionsByUser(1),
-          getTasksByUser(1).catch(() => []),
-        ]);
+        const sessions = await getSessionsByUser(1);
+        if (!isMounted) return;
 
-        if (isMounted) {
-          setRecentSessions(sessions);
-          setAvailableTasks(tasks.filter((t) => t.status !== "Completed"));
+        let target = null;
+        if (sessionIdFromUrl) {
+          target = sessions.find(
+            (s) => (s.sessionId || s.session_id) === sessionIdFromUrl,
+          );
         }
+
+        if (!target) {
+          target = sessions.find((s) => s.status === "Planned") || sessions[0];
+        }
+
+        if (!target) {
+          setError(
+            "No planned sessions available. Generate one on the Schedule page.",
+          );
+          return;
+        }
+
+        setSession(target);
+        setPhase(Phase.Focus);
+        setSecondsLeft(
+          Math.round(
+            (target.plannedFocusDuration ||
+              target.planned_focus_duration ||
+              45) * 60,
+          ),
+        );
+        setFocusElapsedSeconds(0);
+        setBreaksSkipped(0);
+        setSessionStartTime(new Date().toISOString());
+        setMessage("Session marked InProgress locally.");
       } catch (err) {
         if (isMounted) setError("Unable to load session data.");
       }
     };
 
-    loadInitialData();
-    return () => { isMounted = false; };
-  }, []);
+    loadSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [sessionIdFromUrl]);
 
-  const toggleTask = (taskId) => {
-    setSelectedTaskIds((prev) =>
-      prev.includes(taskId)
-        ? prev.filter((id) => id !== taskId)
-        : [...prev, taskId]
-    );
-  };
+  useEffect(() => {
+    if (!session) return;
+    if (phase !== Phase.Focus && phase !== Phase.Break) return;
 
-  // ── EXECUTE: Start Session ──────────────────────────────────────────────
-  const handleStartSession = async () => {
-    if (selectedTaskIds.length === 0) {
-      setError("Please select at least one task to focus on.");
+    if (secondsLeft <= 0) {
+      if (phase === Phase.Focus) {
+        setPhase(Phase.BreakPrompt);
+      } else {
+        setPhase(Phase.Focus);
+        setSecondsLeft(focusSeconds);
+      }
       return;
     }
-    setError("");
-    setMessage("");
 
-    try {
-      const session = await createSession({ userId: 1, breakCount: 0 });
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+      if (phase === Phase.Focus) {
+        setFocusElapsedSeconds((prev) => prev + 1);
+      }
+    }, 1000);
 
-      await Promise.all(
-        selectedTaskIds.map((taskId) => {
-          const task = availableTasks.find(
-            (t) => (t.taskId || t.task_id) === taskId
-          );
-          if (!task) return null;
-          return addTaskToSession(session.sessionId, {
-            title: task.title,
-            estimatedTime: task.estimatedTime || task.estimated_time || 30,
-            status: "InProgress",
-          });
-        })
-      );
+    return () => clearInterval(interval);
+  }, [session, phase, secondsLeft, focusSeconds]);
 
-      setRecentSessions((prev) => [session, ...prev]);
-      setActiveSessionData(session);
-      setSessionStartTime(new Date().toISOString());
-      setIsActiveSession(true);
-    } catch (err) {
-      setError("Unable to start the session.");
-    }
+  const handleEndSession = () => {
+    setPhase(Phase.Evaluation);
+    setShowEvalModal(true);
   };
 
-  const handleToggleTaskInSession = async (task) => {
-    try {
-      const newStatus = task.status === "Completed" ? "InProgress" : "Completed";
-      await updateTask(task.taskId || task.task_id, {
-        title: task.title,
-        estimatedTime: task.estimatedTime || task.estimated_time,
-        status: newStatus,
-      });
-      const tasks = await getTasksByUser(1);
-      setAvailableTasks(tasks);
-    } catch (err) {
-      console.error("Failed to update task status:", err);
-    }
+  const handleTakeBreak = () => {
+    setPhase(Phase.Break);
+    setSecondsLeft(breakSeconds);
   };
 
-  // ── End Session → open Evaluation Modal (DO NOT save yet) ──────────────
-  const handleEndSession = ({ completed, duration }) => {
-    setSessionDuration(duration);
-    setIsActiveSession(false);
-    setShowEvalModal(true); // ← Open modal, not save
+  const handleSkipBreak = () => {
+    setBreaksSkipped((prev) => prev + 1);
+    setPhase(Phase.Focus);
+    setSecondsLeft(focusSeconds);
   };
 
-  // ── EVALUATE: Submit Evaluation → save → REFLECT: navigate to dashboard ─
-  const handleSubmitEvaluation = async ({ mood, breaksSkipped }) => {
+  const handleSubmitEvaluation = async ({ mood }) => {
     setIsSubmittingEval(true);
     try {
       const endTime = new Date().toISOString();
+      const studyDuration = Number((focusElapsedSeconds / 60).toFixed(2));
 
-      await updateSessionTimes(activeSessionData.sessionId, {
-        startTime: sessionStartTime,
+      await completeSession(session.sessionId || session.session_id, {
+        startTime: sessionStartTime || endTime,
         endTime,
-        studyDuration: sessionDuration,
+        studyDuration,
+        mood,
+        breaksSkipped,
       });
 
-      const scoreMap = {
-        Happy: 20,
-        Neutral: 50,
-        Tired: 80,
-        Exhausted: 100,
-      };
-
-      await saveBurnoutRecord({
-        sessionId: activeSessionData.sessionId,
-        score: scoreMap[mood] ?? 50,
-      });
-
-      // REFLECT: route to dashboard
       navigate("/dashboard");
     } catch (err) {
-      setError("Failed to save evaluation. Please try again.");
+      setError("Failed to complete session. Please try again.");
       setIsSubmittingEval(false);
       setShowEvalModal(false);
     }
   };
-
-  const activeTasks = availableTasks.filter((t) =>
-    selectedTaskIds.includes(t.taskId || t.task_id)
-  );
 
   return (
     <>
@@ -297,60 +371,34 @@ const SessionsPage = () => {
         />
 
         <div className="flex gap-6 items-start">
-          {/* LEFT SIDE */}
           <div className="flex-1 min-w-0">
-            {isActiveSession ? (
-              <SessionTimer
-                initialMinutes={studyHours * 60}
-                tasks={activeTasks}
+            {!session ? (
+              <Card className="py-12 text-center text-slate-500">
+                {error || "Loading session…"}
+              </Card>
+            ) : phase === Phase.Focus ? (
+              <FocusTimer
+                secondsLeft={secondsLeft}
+                totalSeconds={focusSeconds}
                 onEnd={handleEndSession}
-                onTaskToggle={handleToggleTaskInSession}
+              />
+            ) : phase === Phase.BreakPrompt ? (
+              <BreakPrompt
+                onTakeBreak={handleTakeBreak}
+                onSkipBreak={handleSkipBreak}
+                onEnd={handleEndSession}
+              />
+            ) : phase === Phase.Break ? (
+              <BreakTimer
+                secondsLeft={secondsLeft}
+                totalSeconds={breakSeconds}
+                onEnd={handleEndSession}
               />
             ) : (
-              <Card className="space-y-7">
-                {/* Study Hours */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                    Study Hours
-                  </label>
-                  <NumberInput
-                    icon={<Clock size={16} />}
-                    value={studyHours}
-                    onChange={setStudyHours}
-                    min={1}
-                    max={12}
-                  />
-                </div>
-
-                {/* Task Selector */}
-                <TaskSelector
-                  tasks={availableTasks}
-                  selectedIds={selectedTaskIds}
-                  onToggle={toggleTask}
-                />
-
-                {/* Start Session */}
-                <Button
-                  variant="solid"
-                  size="lg"
-                  fullWidth
-                  className="py-4 text-base font-semibold rounded-xl"
-                  onClick={handleStartSession}
-                >
-                  ▶ Start Session
-                </Button>
+              <Card className="py-12 text-center text-slate-500">
+                Session evaluation in progress…
               </Card>
             )}
-          </div>
-
-          {/* RIGHT SIDEBAR */}
-          <div className="w-72 flex-shrink-0 space-y-4">
-            <BurnoutPrediction
-              prediction={defaultSessionData.burnoutPrediction}
-            />
-            <TriviaCard trivia={defaultSessionData.trivia} />
-            <SessionStats stats={defaultSessionData.stats} />
-            <RecentSessions sessions={recentSessions} />
           </div>
         </div>
       </motion.div>

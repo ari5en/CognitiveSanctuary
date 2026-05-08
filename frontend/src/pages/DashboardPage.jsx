@@ -1,67 +1,38 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { getTasksByUser, getSessionsByUser, getPlannerByUser, getLatestBurnoutByUser } from "../services/api";
+import {
+  getSessionsByUser,
+  getPlannerByUser,
+  getLatestBurnoutByUser,
+  getTasksBySession,
+} from "../services/api";
 
 // Dashboard Components
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import StatusBanner from "../components/dashboard/StatusBanner";
 import KPICards from "../components/dashboard/KPICards";
 import BurnoutRiskGauge from "../components/dashboard/BurnoutRiskGauge";
-import FocusFlowChart from "../components/dashboard/FocusFlowChart";
-import Milestones from "../components/dashboard/Milestones";
 import QuickActions from "../components/dashboard/QuickActions";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
 
 const defaultDashboardData = {
-  greeting: "Hello, Alex",
-  dateSubtitle: "MONDAY, OCTOBER 24 — DEEP WORK MODE ACTIVE",
-  statusBanner: {
-    type: "safe",
-    message: "You are in a safe zone",
-    description: "Your cognitive load is optimal for learning new complex concepts.",
-  },
+  greeting: "Hello",
+  dateSubtitle: "System state overview",
   kpis: [
-    { label: "STUDY HOURS", value: "0h", icon: "clock" },
-    { label: "BREAKS TAKEN", value: "0", icon: "coffee" },
-    { label: "DAILY MOOD", value: "Neutral", icon: "smile" },
+    { label: "TOTAL STUDY TIME", value: "0h", icon: "clock" },
+    { label: "SESSIONS COMPLETED", value: "0", icon: "check" },
+    { label: "BURNOUT SCORE", value: "0", icon: "activity" },
   ],
   burnoutRisk: {
     score: 0,
     status: "STABLE",
-    description: "Load data to see your burnout risk analysis.",
+    description: "No burnout record yet.",
   },
-  focusFlowData: [
-    { day: "MON", engagement: 0 },
-    { day: "TUE", engagement: 0 },
-    { day: "WED", engagement: 0 },
-    { day: "THU", engagement: 0 },
-    { day: "FRI", engagement: 0 },
-    { day: "SAT", engagement: 0 },
-    { day: "SUN", engagement: 0 },
-  ],
-  milestones: [
-    {
-      id: 1,
-      title: "Neural Networks Exam",
-      date: "FRIDAY, OCT 28",
-      badge: "HIGH FOCUS",
-      badgeColor: "green",
-      borderColor: "border-green-500",
-    },
-    {
-      id: 2,
-      title: "Ethics in AI Essay",
-      date: "MONDAY, OCT 31",
-      badge: "PLANNING",
-      badgeColor: "amber",
-      borderColor: "border-amber-400",
-    },
-  ],
   quickActions: [
-    { id: "new-task", label: "New Task", icon: "check-square-2" },
-    { id: "review", label: "Review", icon: "clipboard-list" },
-    { id: "unwind", label: "Unwind", icon: "leaf" },
-    { id: "reports", label: "Reports", icon: "bar-chart-2" },
+    { id: "plan-session", label: "Plan New Session", icon: "calendar-check" },
+    { id: "view-sessions", label: "View Sessions", icon: "play-circle" },
   ],
 };
 
@@ -69,19 +40,31 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(defaultDashboardData);
   const [error, setError] = useState("");
-  const [user, setUser] = useState(null);
+  const [planner, setPlanner] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [plannedTaskCount, setPlannedTaskCount] = useState(0);
 
   // REFLECT → PLAN: route Quick Actions back into the lifecycle
   const handleQuickAction = (actionId) => {
-    if (actionId === "new-task") navigate("/schedule");
-    else if (actionId === "review") navigate("/sessions");
-    // "unwind" and "reports" are display-only for now
+    if (actionId === "plan-session") navigate("/schedule");
+    else if (actionId === "view-sessions") navigate("/sessions");
   };
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user") || '{"name": "Alex", "id": 1}');
-    setUser(storedUser);
-    setDashboardData(prev => ({ ...prev, greeting: `Hello, ${storedUser.name}` }));
+    const storedUser = JSON.parse(
+      localStorage.getItem("user") || '{"name": "Alex", "id": 1}',
+    );
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+    setDashboardData((prev) => ({
+      ...prev,
+      greeting: `Hello, ${storedUser.name}`,
+      dateSubtitle: formattedDate,
+    }));
   }, []);
 
   useEffect(() => {
@@ -89,71 +72,53 @@ const DashboardPage = () => {
 
     const loadData = async () => {
       try {
-        const [sessions, planner, tasks, burnout] = await Promise.all([
+        const [sessionData, plannerData, burnout] = await Promise.all([
           getSessionsByUser(1),
           getPlannerByUser(1).catch(() => null),
-          getTasksByUser(1).catch(() => []),
           getLatestBurnoutByUser(1).catch(() => null),
         ]);
 
         if (!isMounted) return;
 
-        const completedTasksCount = tasks.filter(t => t.status === "Completed").length;
-
-        const dynamicMilestones = tasks
-          .filter(t => t.status !== "Completed")
-          .slice(0, 3)
-          .map((t, idx) => ({
-            id: t.taskId || t.task_id || idx,
-            title: t.title,
-            date: t.status === "InProgress" ? "IN PROGRESS" : "PLANNED",
-            badge: "TASK",
-            badgeColor: t.status === "InProgress" ? "amber" : "green",
-            borderColor: t.status === "InProgress" ? "border-amber-400" : "border-green-500",
-          }));
-
-        const totalMinutes = sessions.reduce((acc, s) => acc + (s.studyDuration || 0), 0);
+        const totalMinutes = (sessionData || []).reduce(
+          (acc, s) => acc + (s.studyDuration || 0),
+          0,
+        );
         const totalHours = (totalMinutes / 60).toFixed(1);
-        
-        const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-        const chartData = days.map((day) => ({ day, engagement: 0 }));
-        sessions.forEach((s) => {
-          const date = s.startTime ? new Date(s.startTime) : null;
-          if (date && !isNaN(date)) {
-            const dayName = days[date.getDay()];
-            const entry = chartData.find((d) => d.day === dayName);
-            if (entry) entry.engagement += s.studyDuration || 0;
-          }
-        });
-        const maxEngagement = Math.max(...chartData.map((d) => d.engagement), 0) || 1;
-        const normalizedChartData = chartData.map((d) => ({
-          ...d,
-          engagement: Math.round((d.engagement / maxEngagement) * 100),
-        }));
+        const completedSessions = (sessionData || []).filter(
+          (s) => s.status === "Completed",
+        ).length;
+
+        setPlanner(plannerData);
+        setSessions(sessionData || []);
 
         setDashboardData((prev) => ({
           ...prev,
-          milestones: dynamicMilestones.length > 0 ? dynamicMilestones : prev.milestones,
           kpis: [
-            { label: "STUDY HOURS", value: `${totalHours}h`, icon: "clock" },
-            { label: "TASKS DONE", value: `${completedTasksCount}`, icon: "check-square" },
-            { label: "DAILY MOOD", value: burnout?.burnoutLevel || "Neutral", icon: "smile" },
+            {
+              label: "TOTAL STUDY TIME",
+              value: `${totalHours}h`,
+              icon: "clock",
+            },
+            {
+              label: "SESSIONS COMPLETED",
+              value: `${completedSessions}`,
+              icon: "check",
+            },
+            {
+              label: "BURNOUT SCORE",
+              value: burnout?.score?.toString() || "0",
+              icon: "activity",
+            },
           ],
-          focusFlowData: normalizedChartData,
           burnoutRisk: {
-            score: burnout?.score || 30,
-            status: (burnout?.burnoutLevel || "STABLE").toUpperCase(),
-            description: burnout?.score > 70 
-              ? "High burnout risk detected. Rest is advised." 
-              : "Your cognitive load is stable. Maintain your pace.",
+            score: burnout?.score || 0,
+            status: (burnout?.burnoutLevel || "Stable").toUpperCase(),
+            description:
+              burnout?.burnoutLevel === "Critical"
+                ? "High burnout detected. Recovery is recommended."
+                : "Burnout is stable based on your latest session.",
           },
-          statusBanner: planner
-            ? {
-                ...prev.statusBanner,
-                message: "Planner synced",
-                description: `Recommended load set to ${planner.recommendedLoad}%.`,
-              }
-            : prev.statusBanner,
         }));
       } catch (err) {
         if (isMounted) setError("Unable to load dashboard data.");
@@ -161,8 +126,70 @@ const DashboardPage = () => {
     };
 
     loadData();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const nextPlannedSession = useMemo(() => {
+    const planned = sessions.filter((s) => s.status === "Planned");
+    if (planned.length === 0) return null;
+    return planned.reduce((prev, curr) =>
+      (curr.sessionId || curr.session_id) < (prev.sessionId || prev.session_id)
+        ? curr
+        : prev,
+    );
+  }, [sessions]);
+
+  const activeSession = useMemo(
+    () => sessions.find((s) => s.status === "InProgress") || null,
+    [sessions],
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadTaskCount = async () => {
+      if (!nextPlannedSession) {
+        if (isMounted) setPlannedTaskCount(0);
+        return;
+      }
+
+      const sessionId =
+        nextPlannedSession.sessionId || nextPlannedSession.session_id;
+      try {
+        const tasks = await getTasksBySession(sessionId);
+        if (isMounted) setPlannedTaskCount(tasks.length);
+      } catch (err) {
+        if (isMounted) setPlannedTaskCount(0);
+      }
+    };
+
+    loadTaskCount();
+    return () => {
+      isMounted = false;
+    };
+  }, [nextPlannedSession]);
+
+  const bannerContent = useMemo(() => {
+    const mode = planner?.burnoutMode || "Normal";
+    if (mode === "Recovery") {
+      return {
+        message: "Recovery mode active",
+        description:
+          "The planner reduced your workload to prioritize recovery.",
+      };
+    }
+    if (mode === "Warning") {
+      return {
+        message: "Warning mode active",
+        description: "The planner is spacing focus blocks to reduce overload.",
+      };
+    }
+    return {
+      message: "Normal mode active",
+      description: "Your study plan is running at a standard focus load.",
+    };
+  }, [planner]);
 
   return (
     <motion.div
@@ -171,32 +198,89 @@ const DashboardPage = () => {
       transition={{ duration: 0.4 }}
       className="max-w-6xl mx-auto"
     >
-      <DashboardHeader 
-        greeting={dashboardData.greeting} 
-        dateSubtitle={dashboardData.dateSubtitle} 
+      <DashboardHeader
+        greeting={dashboardData.greeting}
+        dateSubtitle={dashboardData.dateSubtitle}
       />
 
-      <StatusBanner 
-        statusBanner={dashboardData.statusBanner} 
-        error={error} 
+      <StatusBanner
+        burnoutMode={planner?.burnoutMode}
+        message={bannerContent.message}
+        description={bannerContent.description}
+        error={error}
       />
 
       <div className="flex gap-6 items-start">
         {/* Main Section */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-6">
           <KPICards kpis={dashboardData.kpis} />
-          <FocusFlowChart focusFlowData={dashboardData.focusFlowData} />
-          
-          <div className="flex gap-6 mt-6">
-            <Milestones milestones={dashboardData.milestones} />
-            <QuickActions
-              quickActions={dashboardData.quickActions}
-              onAction={handleQuickAction}
-            />
-          </div>
+
+          <Card className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800">Today's Plan</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/schedule")}
+              >
+                View Planner
+              </Button>
+            </div>
+            {nextPlannedSession ? (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm text-slate-600">
+                <div className="rounded-xl bg-slate-50 px-4 py-3">
+                  Focus:{" "}
+                  {nextPlannedSession.plannedFocusDuration ||
+                    nextPlannedSession.planned_focus_duration ||
+                    45}{" "}
+                  min
+                </div>
+                <div className="rounded-xl bg-slate-50 px-4 py-3">
+                  Break Interval:{" "}
+                  {nextPlannedSession.breakIntervalMinutes ||
+                    nextPlannedSession.break_interval_minutes ||
+                    45}{" "}
+                  min
+                </div>
+                <div className="rounded-xl bg-slate-50 px-4 py-3">
+                  Break:{" "}
+                  {nextPlannedSession.plannedBreakDuration ||
+                    nextPlannedSession.planned_break_duration ||
+                    10}{" "}
+                  min
+                </div>
+                <div className="rounded-xl bg-slate-50 px-4 py-3">
+                  Tasks: {plannedTaskCount}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                No planned sessions yet. Generate one from the planner.
+              </p>
+            )}
+          </Card>
+
+          <Card className="space-y-2">
+            <h3 className="font-bold text-slate-800">Session Progress</h3>
+            {activeSession ? (
+              <p className="text-sm text-slate-600">
+                Active session #
+                {activeSession.sessionId || activeSession.session_id} is in
+                progress.
+              </p>
+            ) : (
+              <p className="text-sm text-slate-500">
+                No active session right now.
+              </p>
+            )}
+          </Card>
+
+          <QuickActions
+            quickActions={dashboardData.quickActions}
+            onAction={handleQuickAction}
+          />
         </div>
 
-        {/* Sidebar Section */}
         <div className="flex-shrink-0">
           <BurnoutRiskGauge burnoutRisk={dashboardData.burnoutRisk} />
         </div>

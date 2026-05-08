@@ -1,12 +1,10 @@
 import React from "react";
-import { CheckSquare2, ClipboardList, Leaf, BarChart2 } from "lucide-react";
+import { CalendarCheck2, PlayCircle } from "lucide-react";
 import Card from "../ui/Card";
 
 const quickActionIconMap = {
-  "check-square-2": <CheckSquare2 size={22} className="text-slate-600" />,
-  "clipboard-list": <ClipboardList size={22} className="text-slate-600" />,
-  leaf: <Leaf size={22} className="text-slate-600" />,
-  "bar-chart-2": <BarChart2 size={22} className="text-slate-600" />,
+  "calendar-check": <CalendarCheck2 size={22} className="text-slate-600" />,
+  "play-circle": <PlayCircle size={22} className="text-slate-600" />,
 };
 
 const QuickActions = ({ quickActions, onAction }) => {
@@ -33,6 +31,5 @@ const QuickActions = ({ quickActions, onAction }) => {
     </div>
   );
 };
-
 
 export default QuickActions;

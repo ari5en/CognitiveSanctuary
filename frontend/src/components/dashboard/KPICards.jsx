@@ -1,11 +1,11 @@
 import React from "react";
-import { Clock, Coffee, Smile } from "lucide-react";
+import { Activity, CheckCircle2, Clock } from "lucide-react";
 import Card from "../ui/Card";
 
 const kpiIconMap = {
   clock: <Clock size={18} className="text-sanctuary-700" />,
-  coffee: <Coffee size={18} className="text-sanctuary-700" />,
-  smile: <Smile size={18} className="text-sanctuary-700" />,
+  check: <CheckCircle2 size={18} className="text-sanctuary-700" />,
+  activity: <Activity size={18} className="text-sanctuary-700" />,
 };
 
 const KPICards = ({ kpis }) => {
@@ -20,9 +20,7 @@ const KPICards = ({ kpis }) => {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
               {kpi.label}
             </p>
-            <p className="text-2xl font-bold text-slate-800">
-              {kpi.value}
-            </p>
+            <p className="text-2xl font-bold text-slate-800">{kpi.value}</p>
           </div>
         </Card>
       ))}

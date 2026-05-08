@@ -5,53 +5,71 @@ using CognitiveSanctuaryAPI.Models;
 
 namespace CognitiveSanctuaryAPI.Services;
 
-// I in the fileName means Interface. 
-//Interfaces Files defines what methods should exists in the service files
-// and then the service files is the one that puts logic inside method
-// the logic inside method that the service files is implementing is
-// from the class files in the folder Models.
-// and then the controller files is the one that calls 
-//the methods in the service files 
-// to execute the logic and return the response to the client.
-
-// The "I" in the file name means Interface.  
-// Interface files define what methods should exist in the service files.  
-
-// Then the service files are the ones that put the logic inside those methods.  
-// The logic inside the service methods is implemented inside the service class itself,  
-// while Models are only used as data structures.  
-
-// Then the controller files are the ones that call the methods in the service files  
-// in order to execute the logic and return a response back to the client.
-
+// Flow:
 // Client (Frontend / Postman)
+//     ↓  HTTP Request
+// Controller  (validates request)
 //     ↓
-// HTTP Request (API Endpoint)
+// DTO  (transfers data)
 //     ↓
-// Controller (Receives & validates request)
+// Service Layer  (business logic)
 //     ↓
-// DTO (Transforms request data)
+// HttpClient → Supabase REST API → Database
 //     ↓
-// Service Layer (Business logic execution)
-//     ↓
-// HttpClient
-//     ↓
-// Supabase REST API
-//     ↓
-// Database
-//     ↓
-// Response returned to Controller
-//     ↓
-// Client receives response
-
+// Response returned to client
 
 public interface InterfaceStudySessionService
 {
-    Task<StudySession> CreateSessionAsync(int userId, int breakCount);
-    Task UpdateSessionTimesAsync(int sessionId, DateTime startTime, DateTime endTime, double studyDuration);
-    Task AddTaskAsync(int sessionId, StudyTask task);
+    // ── Create ──────────────────────────────────────────────────────────────
+    Task<StudySession> CreateSessionAsync(int userId, int breakCount,
+        double plannedFocusDuration = 45,
+        int    breakIntervalMinutes = 45,
+        double plannedBreakDuration = 10);
+
+    // ── Read ─────────────────────────────────────────────────────────────────
     Task<IReadOnlyList<StudySession>> GetSessionsByUserAsync(int userId);
-    Task<IReadOnlyList<StudyTask>> GetTasksByUserAsync(int userId);
+    Task<SessionWithUserId?> GetSessionWithUserIdAsync(int sessionId);
+    Task<IReadOnlyList<StudyTask>>   GetTasksByUserAsync(int userId);
+    Task<IReadOnlyList<StudyTask>>   GetTasksBySessionAsync(int sessionId);
+
+    // ── Update ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Atomic session completion:
+    ///   1. Persists timing + mood + breaksSkipped
+    ///   2. Runs BurnoutCalculator on the backend (score is NOT sent from frontend)
+    ///   3. Saves BurnoutRecord
+    ///   4. Runs StudyPlanner.adjustSchedule() and updates the planner row
+    /// Returns the burnout level and adaptive config for the next session.
+    /// </summary>
+    Task<SessionCompleteResult> CompleteSessionAsync(
+        int      sessionId,
+        DateTime startTime,
+        DateTime endTime,
+        double   studyDuration,
+        int      mood,
+        int      breaksSkipped);
+
+    // ── Legacy update (kept for backward compat) ─────────────────────────────
+    Task UpdateSessionTimesAsync(int sessionId, DateTime startTime, DateTime endTime, double studyDuration);
+
+    // ── Task management ──────────────────────────────────────────────────────
+    Task AddTaskAsync(int sessionId, StudyTask task);
     Task UpdateTaskAsync(int taskId, StudyTask task);
     Task DeleteTaskAsync(int taskId);
 }
+
+/// <summary>
+/// Returned by CompleteSessionAsync — gives the frontend everything it needs
+/// to show the post-session screen and decide on navigation.
+/// </summary>
+public record SessionCompleteResult(
+    double               BurnoutScore,
+    string               BurnoutLevel,      // Stable | Warning | Critical
+    AdaptiveSessionConfig AdaptiveConfig    // structure for the NEXT session
+);
+
+/// <summary>
+/// Session with its owning user id. Used for planner updates after burnout scoring.
+/// </summary>
+public record SessionWithUserId(StudySession Session, int UserId);

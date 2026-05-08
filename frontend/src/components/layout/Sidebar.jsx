@@ -67,13 +67,7 @@ const Sidebar = () => {
 
       {/* Bottom Actions */}
       <div className="px-3 pb-5 space-y-1 border-t border-slate-100 pt-4">
-        <motion.button
-          whileHover={{ backgroundColor: '#f8fafc' }}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 transition-colors duration-150"
-        >
-          <HelpCircle size={18} className="text-slate-400" />
-          Help
-        </motion.button>
+     
         <motion.button
           whileHover={{ backgroundColor: '#fff1f2' }}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 transition-colors duration-150"

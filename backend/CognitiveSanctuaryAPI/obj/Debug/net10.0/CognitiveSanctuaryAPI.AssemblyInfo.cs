@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CognitiveSanctuaryAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7dcc6a4ccf21d757c4d32d5018190afb9f3fd2ad")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2ed268844f6adbbfbc68353434d073643be2ab1e")]
 [assembly: System.Reflection.AssemblyProductAttribute("CognitiveSanctuaryAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CognitiveSanctuaryAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
