@@ -107,17 +107,44 @@ public class StudyPlannerService : InterfaceStudyPlannerService
 
     public async Task<PlannerSnapshot?> GetPlannerByUserAsync(int userId)
     {
-        // Planner GET is a derived read model.
-        // Source of truth for adaptation is latest burnout score, not stored planner snapshot.
-        var latestBurnoutScore = await GetLatestBurnoutScoreByUserAsync(userId);
+        var response = await _httpClient.GetAsync(
+            $"study_planner?user_id=eq.{userId}&select=*");
+        response.EnsureSuccessStatusCode();
 
-        var planner = CreatePlanner();
-        var adaptiveConfig = AdjustSchedule(planner, latestBurnoutScore);
+        var rows = await response.Content.ReadFromJsonAsync<List<StudyPlannerRow>>(JsonOptions)
+                   ?? new List<StudyPlannerRow>();
 
-        return new PlannerSnapshot(
-            planner.recommendedLoad,
-            planner.burnoutMode,
-            adaptiveConfig);
+        if (rows.Count == 0)
+        {
+            var defaultPlanner = CreatePlanner();
+            var defaultConfig = new AdaptiveSessionConfig(
+                defaultPlanner.plannedFocusDuration,
+                defaultPlanner.breakIntervalMinutes,
+                defaultPlanner.plannedBreakDuration,
+                defaultPlanner.burnoutMode);
+
+            await SavePlannerAsync(
+                userId,
+                defaultPlanner.recommendedLoad,
+                defaultPlanner.burnoutMode,
+                defaultPlanner.plannedFocusDuration,
+                defaultPlanner.breakIntervalMinutes,
+                defaultPlanner.plannedBreakDuration);
+
+            return new PlannerSnapshot(
+                defaultPlanner.recommendedLoad,
+                defaultPlanner.burnoutMode,
+                defaultConfig);
+        }
+
+        var row = rows[0];
+        var adaptiveConfig = new AdaptiveSessionConfig(
+            row.planned_focus_duration,
+            row.break_interval_minutes,
+            row.planned_break_duration,
+            row.burnout_mode);
+
+        return new PlannerSnapshot(row.recommended_load, row.burnout_mode, adaptiveConfig);
     }
 
     /// <summary>
@@ -180,24 +207,6 @@ public class StudyPlannerService : InterfaceStudyPlannerService
     private sealed class PlannerIdRow
     {
         public int planner_id { get; set; }
-    }
-
-    private sealed class BurnoutScoreRow
-    {
-        public double burnout_score { get; set; }
-    }
-
-    private async Task<double> GetLatestBurnoutScoreByUserAsync(int userId)
-    {
-        var url = $"burnout_records?select=burnout_score,study_sessions!inner(user_id)"
-                + $"&study_sessions.user_id=eq.{userId}&order=record_id.desc&limit=1";
-        var response = await _httpClient.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-
-        var rows = await response.Content.ReadFromJsonAsync<List<BurnoutScoreRow>>(JsonOptions)
-                   ?? new List<BurnoutScoreRow>();
-
-        return rows.Count > 0 ? rows[0].burnout_score : 0;
     }
 
     private sealed class StudyPlannerInsert

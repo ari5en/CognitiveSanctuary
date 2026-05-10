@@ -102,7 +102,7 @@ public sealed class SessionsController : ControllerBase
     ///   1. Persists timing + mood + breaksSkipped  (StudySessionService)
     ///   2. Runs BurnoutCalculator on the backend   (score is NOT from frontend)
     ///   3. Saves BurnoutRecord
-    ///   4. Runs StudyPlanner.adjustSchedule() for the derived adaptive response
+    ///   4. Runs StudyPlanner.adjustSchedule() and persists updated planner
     /// Returns: burnoutScore, burnoutLevel, adaptiveConfig for the next session.
     /// </summary>
     [HttpPatch("{sessionId:int}/complete")]
@@ -139,6 +139,19 @@ public sealed class SessionsController : ControllerBase
         // StudyPlannerService depends on StudySessionService, so we call planner here.
         var planner        = _plannerService.CreatePlanner();
         var adaptiveConfig = _plannerService.AdjustSchedule(planner, result.BurnoutScore);
+
+        var sessionOwner = await _studySessionService.GetSessionWithUserIdAsync(sessionId);
+        if (sessionOwner is null)
+            return NotFound($"Session {sessionId} not found.");
+
+        // Persist the updated planner for the owning user
+        await _plannerService.SavePlannerAsync(
+            sessionOwner.UserId,
+            planner.recommendedLoad,
+            planner.burnoutMode,
+            planner.plannedFocusDuration,
+            planner.breakIntervalMinutes,
+            planner.plannedBreakDuration);
 
         return Ok(new
         {

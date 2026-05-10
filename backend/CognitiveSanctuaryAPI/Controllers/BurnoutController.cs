@@ -61,6 +61,13 @@ public sealed class BurnoutController : ControllerBase
 
         var planner = _plannerService.CreatePlanner();
         var adaptiveConfig = _plannerService.AdjustSchedule(planner, burnoutScore);
+        await _plannerService.SavePlannerAsync(
+            sessionWithUser.UserId,
+            planner.recommendedLoad,
+            planner.burnoutMode,
+            planner.plannedFocusDuration,
+            planner.breakIntervalMinutes,
+            planner.plannedBreakDuration);
 
         return Ok(new
         {
