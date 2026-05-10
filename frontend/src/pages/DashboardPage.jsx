@@ -7,282 +7,219 @@ import {
   getLatestBurnoutByUser,
   getTasksBySession,
 } from "../services/api";
+import { CATEGORIES } from "../pages/SchedulePage";
 
 // Dashboard Components
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import StatusBanner from "../components/dashboard/StatusBanner";
 import KPICards from "../components/dashboard/KPICards";
 import BurnoutRiskGauge from "../components/dashboard/BurnoutRiskGauge";
+import BurnoutEmojiIndicator from "../components/dashboard/BurnoutEmojiIndicator";
+import WeeklyStudyChart from "../components/dashboard/WeeklyStudyChart";
+import StudyCategoryChart from "../components/dashboard/StudyCategoryChart";
 import QuickActions from "../components/dashboard/QuickActions";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 
-const defaultDashboardData = {
-  greeting: "Hello",
-  dateSubtitle: "System state overview",
-  kpis: [
-    { label: "TOTAL STUDY TIME", value: "0h", icon: "clock" },
-    { label: "SESSIONS COMPLETED", value: "0", icon: "check" },
-    { label: "BURNOUT SCORE", value: "0", icon: "activity" },
-  ],
-  burnoutRisk: {
-    score: 0,
-    status: "STABLE",
-    description: "No burnout record yet.",
-  },
-  quickActions: [
-    { id: "plan-session", label: "Plan New Session", icon: "calendar-check" },
-    { id: "view-sessions", label: "View Sessions", icon: "play-circle" },
-  ],
-};
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+function buildWeeklyData(sessions) {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = Sun
+  // Build Mon-indexed start of week
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+
+  const buckets = DAYS.map((_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+
+  return DAYS.map((day, i) => {
+    const dayStart = buckets[i];
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
+    const hours = sessions
+      .filter(s => {
+        if (!s.startTime && !s.start_time) return false;
+        const t = new Date(s.startTime || s.start_time);
+        return t >= dayStart && t <= dayEnd;
+      })
+      .reduce((acc, s) => acc + (s.studyDuration || s.study_duration || 0) / 60, 0);
+    return { day, hours: Math.round(hours * 10) / 10 };
+  });
+}
+
+function buildCategoryData(sessions) {
+  const meta = JSON.parse(localStorage.getItem("cs_session_meta") || "{}");
+  const counts = {};
+  sessions.forEach(s => {
+    const sid = s.sessionId || s.session_id;
+    const cat = meta[sid]?.category || "deep-work";
+    counts[cat] = (counts[cat] || 0) + 1;
+  });
+  return CATEGORIES
+    .map(c => ({ name: c.label, value: counts[c.id] || 0 }))
+    .filter(d => d.value > 0);
+}
+
+const defaultKpis = [
+  { label: "TOTAL STUDY TIME",    value: "0h", icon: "clock"    },
+  { label: "SESSIONS COMPLETED",  value: "0",  icon: "check"    },
+  { label: "BURNOUT SCORE",        value: "0",  icon: "activity" },
+];
+
+const quickActions = [
+  { id: "plan-session",  label: "Plan New Session", icon: "calendar-check" },
+  { id: "view-sessions", label: "Start Session",    icon: "play-circle"    },
+];
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState(defaultDashboardData);
-  const [error, setError] = useState("");
+  const [greeting, setGreeting] = useState("Hello");
+  const [dateSubtitle, setDateSubtitle] = useState("");
+  const [kpis, setKpis] = useState(defaultKpis);
+  const [burnoutScore, setBurnoutScore] = useState(0);
+  const [burnoutStatus, setBurnoutStatus] = useState("STABLE");
+  const [burnoutDesc, setBurnoutDesc] = useState("No burnout record yet.");
   const [planner, setPlanner] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [plannedTaskCount, setPlannedTaskCount] = useState(0);
+  const [error, setError] = useState("");
 
-  // REFLECT → PLAN: route Quick Actions back into the lifecycle
+  const weeklyData   = useMemo(() => buildWeeklyData(sessions),  [sessions]);
+  const categoryData = useMemo(() => buildCategoryData(sessions), [sessions]);
+
   const handleQuickAction = (actionId) => {
-    if (actionId === "plan-session") navigate("/schedule");
-    else if (actionId === "view-sessions") navigate("/sessions");
+    if (actionId === "plan-session")  navigate("/schedule");
+    if (actionId === "view-sessions") navigate("/schedule");
   };
 
   useEffect(() => {
-    const storedUser = JSON.parse(
-      localStorage.getItem("user") || '{"name": "Alex", "id": 1}',
-    );
+    const storedUser = JSON.parse(localStorage.getItem("user") || '{"name":"Alex","id":1}');
     const today = new Date();
-    const formattedDate = today.toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
-    setDashboardData((prev) => ({
-      ...prev,
-      greeting: `Hello, ${storedUser.name}`,
-      dateSubtitle: formattedDate,
-    }));
+    setGreeting(`Hello, ${storedUser.name}`);
+    setDateSubtitle(today.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }));
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
+    let mounted = true;
+    (async () => {
       try {
         const [sessionData, plannerData, burnout] = await Promise.all([
           getSessionsByUser(1),
           getPlannerByUser(1).catch(() => null),
           getLatestBurnoutByUser(1).catch(() => null),
         ]);
+        if (!mounted) return;
 
-        if (!isMounted) return;
-
-        const totalMinutes = (sessionData || []).reduce(
-          (acc, s) => acc + (s.studyDuration || 0),
-          0,
-        );
-        const totalHours = (totalMinutes / 60).toFixed(1);
-        const completedSessions = (sessionData || []).filter(
-          (s) => s.status === "Completed",
-        ).length;
+        const allSessions = sessionData || [];
+        const completed = allSessions.filter(s => s.status === "Completed");
+        const totalMinutes = allSessions.reduce((a, s) => a + (s.studyDuration || s.study_duration || 0), 0);
+        const score = burnout?.score ?? burnout?.Score ?? 0;
 
         setPlanner(plannerData);
-        setSessions(sessionData || []);
-
-        setDashboardData((prev) => ({
-          ...prev,
-          kpis: [
-            {
-              label: "TOTAL STUDY TIME",
-              value: `${totalHours}h`,
-              icon: "clock",
-            },
-            {
-              label: "SESSIONS COMPLETED",
-              value: `${completedSessions}`,
-              icon: "check",
-            },
-            {
-              label: "BURNOUT SCORE",
-              value: burnout?.score?.toString() || "0",
-              icon: "activity",
-            },
-          ],
-          burnoutRisk: {
-            score: burnout?.score || 0,
-            status: (burnout?.burnoutLevel || "Stable").toUpperCase(),
-            description:
-              burnout?.burnoutLevel === "Critical"
-                ? "High burnout detected. Recovery is recommended."
-                : "Burnout is stable based on your latest session.",
-          },
-        }));
-      } catch (err) {
-        if (isMounted) setError("Unable to load dashboard data.");
+        setSessions(allSessions);
+        setBurnoutScore(score);
+        setBurnoutStatus((burnout?.burnoutLevel || burnout?.BurnoutLevel || "Stable").toUpperCase());
+        setBurnoutDesc(
+          score >= 75
+            ? "High burnout detected. Recovery is recommended."
+            : score >= 40
+            ? "Moderate fatigue. Keep an eye on break consistency."
+            : "Burnout is stable based on your latest session."
+        );
+        setKpis([
+          { label: "TOTAL STUDY TIME",   value: `${(totalMinutes / 60).toFixed(1)}h`, icon: "clock"    },
+          { label: "SESSIONS COMPLETED", value: `${completed.length}`,               icon: "check"    },
+          { label: "BURNOUT SCORE",       value: `${score}`,                          icon: "activity" },
+        ]);
+      } catch {
+        if (mounted) setError("Unable to load dashboard data.");
       }
-    };
-
-    loadData();
-    return () => {
-      isMounted = false;
-    };
+    })();
+    return () => { mounted = false; };
   }, []);
 
-  const nextPlannedSession = useMemo(() => {
-    const planned = sessions.filter((s) => s.status === "Planned");
-    if (planned.length === 0) return null;
-    return planned.reduce((prev, curr) =>
-      (curr.sessionId || curr.session_id) < (prev.sessionId || prev.session_id)
-        ? curr
-        : prev,
-    );
-  }, [sessions]);
-
-  const activeSession = useMemo(
-    () => sessions.find((s) => s.status === "InProgress") || null,
+  const nextPlannedSession = useMemo(() =>
+    sessions.filter(s => s.status === "Planned")
+      .sort((a, b) => (a.sessionId || a.session_id) - (b.sessionId || b.session_id))[0] || null,
     [sessions],
   );
 
   useEffect(() => {
-    let isMounted = true;
-    const loadTaskCount = async () => {
-      if (!nextPlannedSession) {
-        if (isMounted) setPlannedTaskCount(0);
-        return;
-      }
-
-      const sessionId =
-        nextPlannedSession.sessionId || nextPlannedSession.session_id;
-      try {
-        const tasks = await getTasksBySession(sessionId);
-        if (isMounted) setPlannedTaskCount(tasks.length);
-      } catch (err) {
-        if (isMounted) setPlannedTaskCount(0);
-      }
-    };
-
-    loadTaskCount();
-    return () => {
-      isMounted = false;
-    };
+    if (!nextPlannedSession) { setPlannedTaskCount(0); return; }
+    const sid = nextPlannedSession.sessionId || nextPlannedSession.session_id;
+    getTasksBySession(sid).then(t => setPlannedTaskCount(t.length)).catch(() => setPlannedTaskCount(0));
   }, [nextPlannedSession]);
 
   const bannerContent = useMemo(() => {
     const mode = planner?.burnoutMode || "Normal";
-    if (mode === "Recovery") {
-      return {
-        message: "Recovery mode active",
-        description:
-          "The planner reduced your workload to prioritize recovery.",
-      };
-    }
-    if (mode === "Warning") {
-      return {
-        message: "Warning mode active",
-        description: "The planner is spacing focus blocks to reduce overload.",
-      };
-    }
-    return {
-      message: "Normal mode active",
-      description: "Your study plan is running at a standard focus load.",
-    };
+    if (mode === "Recovery") return { message: "Recovery mode active", description: "The planner reduced your workload to prioritize recovery." };
+    if (mode === "Warning")  return { message: "Warning mode active",  description: "The planner is spacing focus blocks to reduce overload." };
+    return { message: "Normal mode active", description: "Your study plan is running at a standard focus load." };
   }, [planner]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="max-w-6xl mx-auto"
-    >
-      <DashboardHeader
-        greeting={dashboardData.greeting}
-        dateSubtitle={dashboardData.dateSubtitle}
-      />
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="max-w-6xl mx-auto">
+      <DashboardHeader greeting={greeting} dateSubtitle={dateSubtitle} />
 
-      <StatusBanner
-        burnoutMode={planner?.burnoutMode}
-        message={bannerContent.message}
-        description={bannerContent.description}
-        error={error}
-      />
+      <StatusBanner burnoutMode={planner?.burnoutMode} message={bannerContent.message} description={bannerContent.description} error={error} />
 
-      <div className="flex gap-6 items-start">
-        {/* Main Section */}
-        <div className="flex-1 min-w-0 space-y-6">
-          <KPICards kpis={dashboardData.kpis} />
+      {/* KPIs */}
+      <KPICards kpis={kpis} />
 
+      {/* Row 1: Weekly chart + Burnout indicators */}
+      <div className="flex gap-5 mb-5 items-start">
+        <div className="flex-1 min-w-0">
+          <WeeklyStudyChart weeklyData={weeklyData} />
+        </div>
+        <div className="flex flex-col gap-5 w-64 flex-shrink-0">
+          <BurnoutEmojiIndicator score={burnoutScore} />
+          <BurnoutRiskGauge burnoutRisk={{ score: burnoutScore, status: burnoutStatus, description: burnoutDesc }} />
+        </div>
+      </div>
+
+      {/* Row 2: Category chart + Today's plan */}
+      <div className="flex gap-5 mb-5 items-start">
+        <div className="w-72 flex-shrink-0">
+          <StudyCategoryChart categoryData={categoryData} />
+        </div>
+        <div className="flex-1 min-w-0 space-y-5">
           <Card className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-800">Today's Plan</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/schedule")}
-              >
-                View Planner
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate("/schedule")}>View Planner</Button>
             </div>
             {nextPlannedSession ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm text-slate-600">
+              <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
                 <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  Focus:{" "}
-                  {nextPlannedSession.plannedFocusDuration ||
-                    nextPlannedSession.planned_focus_duration ||
-                    45}{" "}
-                  min
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Focus</p>
+                  <p className="font-semibold">{nextPlannedSession.plannedFocusDuration || nextPlannedSession.planned_focus_duration || 45} min</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  Break Interval:{" "}
-                  {nextPlannedSession.breakIntervalMinutes ||
-                    nextPlannedSession.break_interval_minutes ||
-                    45}{" "}
-                  min
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Break</p>
+                  <p className="font-semibold">{nextPlannedSession.plannedBreakDuration || nextPlannedSession.planned_break_duration || 10} min</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  Break:{" "}
-                  {nextPlannedSession.plannedBreakDuration ||
-                    nextPlannedSession.planned_break_duration ||
-                    10}{" "}
-                  min
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Break Interval</p>
+                  <p className="font-semibold">{nextPlannedSession.breakIntervalMinutes || nextPlannedSession.break_interval_minutes || 45} min</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  Tasks: {plannedTaskCount}
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Tasks</p>
+                  <p className="font-semibold">{plannedTaskCount}</p>
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">
-                No planned sessions yet. Generate one from the planner.
-              </p>
+              <p className="text-sm text-slate-500">No planned sessions yet. Generate one from the planner.</p>
             )}
           </Card>
 
-          <Card className="space-y-2">
-            <h3 className="font-bold text-slate-800">Session Progress</h3>
-            {activeSession ? (
-              <p className="text-sm text-slate-600">
-                Active session #
-                {activeSession.sessionId || activeSession.session_id} is in
-                progress.
-              </p>
-            ) : (
-              <p className="text-sm text-slate-500">
-                No active session right now.
-              </p>
-            )}
-          </Card>
-
-          <QuickActions
-            quickActions={dashboardData.quickActions}
-            onAction={handleQuickAction}
-          />
-        </div>
-
-        <div className="flex-shrink-0">
-          <BurnoutRiskGauge burnoutRisk={dashboardData.burnoutRisk} />
+          <QuickActions quickActions={quickActions} onAction={handleQuickAction} />
         </div>
       </div>
     </motion.div>

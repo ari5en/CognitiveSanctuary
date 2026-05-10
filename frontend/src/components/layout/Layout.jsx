@@ -5,6 +5,18 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
 const Layout = () => {
+  const location = useLocation();
+  // Sessions page is a full-screen execution environment — hide sidebar & topbar
+  const isSessionsPage = location.pathname === '/sessions';
+
+  if (isSessionsPage) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Outlet />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar />
