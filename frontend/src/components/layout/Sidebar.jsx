@@ -3,9 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   CalendarDays,
-  Timer,
   Settings,
-  HelpCircle,
   LogOut,
   Leaf,
 } from 'lucide-react';
@@ -14,7 +12,6 @@ import { motion } from 'framer-motion';
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { to: '/schedule',  label: 'Schedule',  icon: <CalendarDays size={18} /> },
-  { to: '/sessions',  label: 'Sessions',  icon: <Timer size={18} /> },
   { to: '/settings',  label: 'Settings',  icon: <Settings size={18} /> },
 ];
 
