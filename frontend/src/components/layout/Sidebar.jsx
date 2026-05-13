@@ -5,73 +5,94 @@ import {
   CalendarDays,
   Settings,
   LogOut,
+  Bell,
+  BookOpen,
   Leaf,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-  { to: '/schedule',  label: 'Schedule',  icon: <CalendarDays size={18} /> },
-  { to: '/settings',  label: 'Settings',  icon: <Settings size={18} /> },
+  { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
+  { to: '/schedule',  icon: <CalendarDays    size={20} />, label: 'Schedule'  },
+  { to: '/sessions',  icon: <BookOpen        size={20} />, label: 'Sessions'  },
 ];
 
 const Sidebar = () => {
+  const storedUser = JSON.parse(localStorage.getItem('user') || '{"name":"Alex"}');
+  const initials = (storedUser.name || 'A').slice(0, 1).toUpperCase();
+
   return (
-    <aside className="fixed top-0 left-0 h-full w-52 bg-white border-r border-slate-100 flex flex-col z-30">
-      {/* Logo */}
-      <div className="px-5 pt-6 pb-5 border-b border-slate-100">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-sanctuary-900 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Leaf size={16} className="text-white" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-800 leading-tight truncate">Sanctuary</p>
-            <p className="text-xs text-slate-400 leading-tight truncate">Deep Work Mode</p>
-          </div>
+    <aside className="fixed top-0 left-0 h-full w-[80px] flex flex-col items-end pr-2 py-8 z-30 overflow-y-auto hide-scrollbar"
+      style={{ background: '#E8E4DC' }}>
+
+      {/* Logo mark */}
+      <div className="mb-6 flex flex-col items-center gap-1 w-14">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden"
+          style={{ background: '#E8E4DC' }}>
+          <img src="/logo.jpg" alt="Cognitive Sanctuary Logo" className="w-full h-full object-cover" />
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => (
+      <div className="flex flex-col gap-4 flex-1 w-14 items-center">
+        {/* Top Nav Pill */}
+        <nav className="bg-white rounded-full py-2 flex flex-col gap-2 items-center shadow-sm w-14">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              title={item.label}
+              className={({ isActive }) =>
+                [
+                  'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 group relative',
+                  isActive
+                    ? 'bg-[#d1e0d3] text-[#2c4c3b] shadow-inner'
+                    : 'text-[#9ca3af] hover:bg-[#f3f4f6] hover:text-[#374151]',
+                ].join(' ')
+              }
+            >
+              {item.icon}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Bottom Pill (Settings, Logout & Avatar) */}
+        <div className="bg-white rounded-full py-2 flex flex-col gap-2 items-center shadow-sm w-14 mt-auto">
+          {/* Settings */}
           <NavLink
-            key={item.to}
-            to={item.to}
+            to="/settings"
+            title="Settings"
             className={({ isActive }) =>
               [
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150',
+                'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 group relative',
                 isActive
-                  ? 'bg-sanctuary-50 text-sanctuary-900 font-semibold'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+                  ? 'bg-[#d1e0d3] text-[#2c4c3b] shadow-inner'
+                  : 'text-[#9ca3af] hover:bg-[#f3f4f6] hover:text-[#374151]',
               ].join(' ')
             }
           >
-            {({ isActive }) => (
-              <>
-                <span
-                  className={
-                    isActive ? 'text-sanctuary-700' : 'text-slate-400'
-                  }
-                >
-                  {item.icon}
-                </span>
-                {item.label}
-              </>
-            )}
+            <Settings size={20} />
           </NavLink>
-        ))}
-      </nav>
 
-      {/* Bottom Actions */}
-      <div className="px-3 pb-5 space-y-1 border-t border-slate-100 pt-4">
-     
-        <motion.button
-          whileHover={{ backgroundColor: '#fff1f2' }}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 transition-colors duration-150"
-        >
-          <LogOut size={18} className="text-slate-400" />
-          Logout
-        </motion.button>
+          {/* Logout */}
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-[#9ca3af] hover:bg-[#fde8e8] hover:text-rose-500 transition-all duration-200"
+            title="Logout"
+          >
+            <LogOut size={20} />
+          </motion.button>
+
+          {/* Avatar */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            className="w-10 h-10 rounded-full text-[#1a1a1a] text-sm font-bold flex items-center justify-center mt-1"
+            style={{ background: '#d1e0d3' }}
+            title={storedUser.name}
+          >
+            {initials}
+          </motion.button>
+        </div>
       </div>
     </aside>
   );

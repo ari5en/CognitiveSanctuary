@@ -8,101 +8,62 @@ import {
 } from "../services/api";
 
 // Dashboard Components
-import DashboardHeader from "../components/dashboard/DashboardHeader";
-import StatusBanner from "../components/dashboard/StatusBanner";
-import KPICards from "../components/dashboard/KPICards";
-import BurnoutRiskGauge from "../components/dashboard/BurnoutRiskGauge";
 import BurnoutEmojiIndicator from "../components/dashboard/BurnoutEmojiIndicator";
 import WeeklyStudyChart from "../components/dashboard/WeeklyStudyChart";
 import StudyCategoryChart from "../components/dashboard/StudyCategoryChart";
-import QuickActions from "../components/dashboard/QuickActions";
-import Card from "../components/ui/Card";
-import Button from "../components/ui/Button";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const LIVE_POLL_INTERVAL_MS = 60_000; // 60 seconds
-
-const MOOD_LABELS = { 1: "Happy 😊", 2: "Neutral 😐", 3: "Tired 😴", 4: "Exhausted 😩" };
+const POLL_INTERVAL_MS = 30_000;
 
 const defaultKpis = [
-  { label: "Total Study Time",    value: "—", icon: "clock",    sub: "hours" },
-  { label: "Sessions Completed",  value: "—", icon: "check",    sub: "" },
-  { label: "Burnout Score",       value: "—", icon: "activity", sub: "/ 100" },
-  { label: "Avg Mood",            value: "—", icon: "smile",    sub: "" },
-  { label: "Study Streak",        value: "—", icon: "flame",    sub: "days" },
+  { label: "Study Streak", value: "—", sub: "days" },
+  { label: "Sessions Completed", value: "—", sub: "" },
+  { label: "Burnout", value: "—", sub: "/ 100" },
 ];
 
-const quickActions = [
-  { id: "plan-session",  label: "Plan New Session", icon: "calendar-check" },
-  { id: "view-sessions", label: "Start Session",    icon: "play-circle"    },
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function getBurnoutDesc(score) {
   if (score >= 75) return "High burnout detected. Recovery is recommended.";
   if (score >= 40) return "Moderate fatigue. Keep an eye on break consistency.";
   return "Burnout is stable based on your latest session.";
 }
 
-function buildKpis(analytics, burnoutScore) {
-  const avgMoodLabel = MOOD_LABELS[Math.round(analytics?.averageMood ?? 2)] ?? "Neutral 😐";
+function buildTopKpis(analytics, burnoutScore) {
   return [
+    { label: "Study Streak", value: analytics?.streakDays ?? "—", sub: "days" },
+    { label: "Sessions Completed", value: analytics?.totalSessionsCompleted ?? "—", sub: "" },
     {
-      label: "Total Study Time",
-      value: `${analytics?.totalStudyHours ?? 0}h`,
-      icon: "clock",
-      sub: "all time",
-    },
-    {
-      label: "Sessions Completed",
-      value: `${analytics?.totalSessionsCompleted ?? 0}`,
-      icon: "check",
-      sub: `${analytics?.tasksPending ?? 0} tasks pending`,
-    },
-    {
-      label: "Burnout Score",
-      value: `${Math.round(burnoutScore)}`,
-      icon: "activity",
-      sub: "/ 100 (latest)",
-    },
-    {
-      label: "Avg Mood",
-      value: avgMoodLabel,
-      icon: "smile",
-      sub: "across sessions",
-    },
-    {
-      label: "Study Streak",
-      value: `${analytics?.streakDays ?? 0}`,
-      icon: "flame",
-      sub: `${analytics?.streakDays === 1 ? "day" : "days"} in a row`,
+      label: "Burnout",
+      value: burnoutScore ? `${(Math.round(burnoutScore * 10) / 10).toFixed(1)}%` : "—",
+      sub: "/ 100",
     },
   ];
 }
 
+// Mode pill colours — Normal=green, Warning=amber, Recovery=red
+const MODE_STYLES = {
+  Normal:   { bg: "#dcfce7", color: "#15803d", cardGradient: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(165,193,167,0.5) 100%)" },
+  Warning:  { bg: "#fef3c7", color: "#b45309", cardGradient: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(253,230,138,0.5) 100%)" },
+  Recovery: { bg: "#ffe4e6", color: "#e11d48", cardGradient: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(254,205,211,0.5) 100%)" },
+};
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const pollRef  = useRef(null);
-  // Hold analytics reference so live poll can rebuild KPIs with latest burnout score
-  const analyticsRef = useRef(null);
+  const pollRef = useRef(null);
 
-  // ── UI state ────────────────────────────────────────────────────────────────
-  const [greeting, setGreeting]         = useState("Hello");
+  const [greeting, setGreeting] = useState("Hello");
   const [dateSubtitle, setDateSubtitle] = useState("");
-  const [kpis, setKpis]                 = useState(defaultKpis);
-  const [weeklyData, setWeeklyData]     = useState([]);
+  const [kpis, setKpis] = useState(defaultKpis);
+  const [weeklyData, setWeeklyData] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
-  const [planner, setPlanner]           = useState(null);
-  const [error, setError]               = useState("");
+  const [planner, setPlanner] = useState(null);
+  const [error, setError] = useState("");
 
-  // ── Live-polled burnout state (updates every 60s) ─────────────────────────
-  const [burnoutScore, setBurnoutScore]   = useState(0);
-  const [burnoutStatus, setBurnoutStatus] = useState("STABLE");
-  const [burnoutDesc, setBurnoutDesc]     = useState("No burnout record yet.");
-  const [lastPolled, setLastPolled]       = useState(null);
+  const [burnoutScore, setBurnoutScore] = useState(0);
+  const [burnoutDesc, setBurnoutDesc] = useState("No burnout record yet.");
+  const [lastPolled, setLastPolled] = useState(null);
 
-  // ── Greeting on mount ────────────────────────────────────────────────────────
+  // ── Greeting ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user") || '{"name":"Alex","id":1}');
     const today = new Date();
@@ -112,168 +73,211 @@ const DashboardPage = () => {
     );
   }, []);
 
-  // ── Live-poll: silently refresh burnout + planner only ────────────────────
-  const pollBurnout = useCallback(async () => {
+  // ── refreshAll ──────────────────────────────────────────────────────────────
+  const refreshAll = useCallback(async (silent = false) => {
     try {
-      const [burnout, plannerData] = await Promise.all([
+      const [analytics, burnout, plannerData] = await Promise.all([
+        getDashboardAnalytics(1).catch(() => null),
         getLatestBurnoutByUser(1).catch(() => null),
         getPlannerByUser(1).catch(() => null),
       ]);
-      const score = burnout?.score ?? burnout?.Score ?? 0;
+
+      // Use rolling average across ALL sessions, not just the latest single one
+      const avgScore = analytics?.averageBurnoutScore ?? analytics?.AverageBurnoutScore ?? null;
+      const latestScore = burnout?.score ?? burnout?.Score ?? 0;
+      const score = avgScore !== null ? Math.round(avgScore * 10) / 10 : latestScore;
+
       setBurnoutScore(score);
-      setBurnoutStatus((burnout?.burnoutLevel || burnout?.BurnoutLevel || "Stable").toUpperCase());
       setBurnoutDesc(getBurnoutDesc(score));
       setPlanner(plannerData);
-      setLastPolled(new Date());
 
-      // Rebuild only the burnout KPI slot (index 2) in-place
-      if (analyticsRef.current) {
-        setKpis(buildKpis(analyticsRef.current, score));
+      if (analytics) {
+        setWeeklyData(analytics.weeklyHours ?? []);
+        setKpis(buildTopKpis(analytics, score));
       }
+
+      const meta = JSON.parse(localStorage.getItem("cs_session_meta") || "{}");
+      const cats = {};
+      Object.values(meta).forEach(({ category }) => {
+        if (category) cats[category] = (cats[category] || 0) + 1;
+      });
+      setCategoryData(Object.entries(cats).map(([name, value]) => ({ name, value })));
+
+      setLastPolled(new Date());
+      if (!silent) setError("");
     } catch {
-      // fail silently — live poll must not disrupt the page
+      if (!silent) setError("Unable to load dashboard data.");
     }
   }, []);
 
-  // ── Initial data load ─────────────────────────────────────────────────────
+  useEffect(() => { refreshAll(false); }, [refreshAll]);
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        // Single backend call for all aggregated metrics + first burnout poll in parallel
-        const [analytics] = await Promise.all([
-          getDashboardAnalytics(1),
-          pollBurnout(),
-        ]);
-        if (!mounted) return;
-
-        analyticsRef.current = analytics;
-        setWeeklyData(analytics?.weeklyHours ?? []);
-
-        // Category data is localStorage-based (no DB column for category yet)
-        const meta = JSON.parse(localStorage.getItem("cs_session_meta") || "{}");
-        const cats = {};
-        Object.values(meta).forEach(({ category }) => {
-          if (category) cats[category] = (cats[category] || 0) + 1;
-        });
-        setCategoryData(Object.entries(cats).map(([name, value]) => ({ name, value })));
-      } catch {
-        if (mounted) setError("Unable to load dashboard data.");
-      }
-    })();
-    return () => { mounted = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Start 60-second live-poll interval ────────────────────────────────────
-  useEffect(() => {
-    pollRef.current = setInterval(pollBurnout, LIVE_POLL_INTERVAL_MS);
+    pollRef.current = setInterval(() => refreshAll(true), POLL_INTERVAL_MS);
     return () => clearInterval(pollRef.current);
-  }, [pollBurnout]);
+  }, [refreshAll]);
 
-  // ── Banner content from planner mode ─────────────────────────────────────
   const mode = planner?.burnoutMode ?? "Normal";
-  const bannerContent =
-    mode === "Recovery"
-      ? { message: "Recovery mode active",  description: "The planner reduced your workload to prioritize recovery." }
-      : mode === "Warning"
-      ? { message: "Warning mode active",   description: "The planner is spacing focus blocks to reduce overload." }
-      : { message: "Normal mode active",    description: "Your study plan is running at a standard focus load." };
-
-  const handleQuickAction = (actionId) => {
-    if (actionId === "plan-session")  navigate("/schedule");
-    if (actionId === "view-sessions") navigate("/schedule");
-  };
+  const modeStyle = MODE_STYLES[mode] || MODE_STYLES.Normal;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="max-w-6xl mx-auto"
-    >
-      <DashboardHeader greeting={greeting} dateSubtitle={dateSubtitle} />
+    <div className="max-w-[1100px] mx-auto">
 
-      <StatusBanner
-        burnoutMode={planner?.burnoutMode}
-        message={bannerContent.message}
-        description={bannerContent.description}
-        error={error}
-      />
-
-      {/* KPIs — 5 backend-powered metrics */}
-      <KPICards kpis={kpis} />
-
-      {/* Row 1: Weekly chart + Burnout indicators */}
-      <div className="flex gap-5 mb-5 items-start">
-        <div className="flex-1 min-w-0">
-          <WeeklyStudyChart weeklyData={weeklyData} />
+      {/* ── Top row: greeting + compact quick-action buttons ─────────────────── */}
+      <div className="flex items-center justify-between mb-7">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight" style={{ color: "#1a1a1a" }}>
+            {greeting}
+          </h1>
+          <p className="text-sm font-medium mt-1 uppercase tracking-widest" style={{ color: "#9ca3af" }}>
+            {dateSubtitle}
+          </p>
         </div>
-        <div className="flex flex-col gap-5 w-64 flex-shrink-0">
-          <BurnoutEmojiIndicator score={burnoutScore} />
-          <BurnoutRiskGauge
-            burnoutRisk={{
-              score: burnoutScore,
-              status: burnoutStatus,
-              description: burnoutDesc,
+
+        {/* Compact quick-action buttons in place of the avatar */}
+        <div className="flex gap-2 flex-shrink-0">
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate("/schedule")}
+            className="px-5 py-2.5 rounded-full text-xs font-bold transition-all"
+            style={{ 
+              background: "rgba(255,255,255,0.7)", 
+              backdropFilter: "blur(12px)", 
+              border: "1px solid rgba(255,255,255,0.9)", 
+              boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
+              color: "#064e3b" 
             }}
-          />
-          {lastPolled && (
-            <p className="text-center text-[10px] text-slate-400">
-              Updated {lastPolled.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          >
+            Plan Session
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate("/schedule")}
+            className="px-5 py-2.5 rounded-full text-xs font-bold transition-all"
+            style={{ 
+              background: "rgba(6,78,59,0.85)", 
+              backdropFilter: "blur(12px)", 
+              border: "1px solid rgba(255,255,255,0.15)", 
+              boxShadow: "0 4px 16px rgba(6,78,59,0.25)",
+              color: "#fff" 
+            }}
+          >
+            Start Session
+          </motion.button>
+        </div>
+      </div>
+
+      {/* ── Main Bento Grid ──────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-4">
+
+        {/* ── Left main block (col 1 & 2, spans 2 rows) ────────────────────── */}
+        <div
+          className="col-span-2 row-span-2 rounded-3xl p-8 relative overflow-hidden flex flex-col justify-between"
+          style={{ background: "#F7F3EE", minHeight: 480 }}
+        >
+          {/* Gradient blobs */}
+          <div className="absolute rounded-full pointer-events-none" style={{ width: 220, height: 220, background: "radial-gradient(circle, rgba(34,197,94,0.35) 0%, transparent 70%)", top: 60, left: "35%", filter: "blur(40px)" }} />
+          <div className="absolute rounded-full pointer-events-none" style={{ width: 200, height: 200, background: "radial-gradient(circle, rgba(251,146,60,0.3) 0%, transparent 70%)", bottom: 20, left: "52%", filter: "blur(38px)" }} />
+          <div className="absolute rounded-full pointer-events-none" style={{ width: 160, height: 160, background: "radial-gradient(circle, rgba(250,204,21,0.2) 0%, transparent 70%)", top: 30, right: 40, filter: "blur(35px)" }} />
+
+          {/* Section 1: Title & KPIs */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#6b7280" }}>
+              FOCUS PLAN RESULTS
             </p>
-          )}
-        </div>
-      </div>
 
-      {/* Row 2: Category chart + Today's plan */}
-      <div className="flex gap-5 mb-5 items-start">
-        <div className="w-72 flex-shrink-0">
-          <StudyCategoryChart categoryData={categoryData} />
-        </div>
-        <div className="flex-1 min-w-0 space-y-5">
-          <Card className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-slate-800">Today's Plan</h3>
-              <Button variant="outline" size="sm" onClick={() => navigate("/schedule")}>
-                View Planner
-              </Button>
+            <div className="flex gap-2 flex-wrap">
+              {kpis.map((kpi, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold"
+                  style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.9)" }}
+                >
+                  <span style={{ color: "#6b7280" }}>{kpi.label}</span>
+                  <span className="font-bold" style={{ color: "#1a1a1a" }}>{kpi.value}</span>
+                  {kpi.sub && <span style={{ color: "#9ca3af" }}>{kpi.sub}</span>}
+                </div>
+              ))}
             </div>
-            {planner ? (
-              <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
-                <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Focus</p>
-                  <p className="font-semibold">
-                    {planner.adaptiveConfig?.focusDuration ?? planner.plannedFocusDuration ?? 45} min
-                  </p>
-                </div>
-                <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Break</p>
-                  <p className="font-semibold">
-                    {planner.adaptiveConfig?.breakDuration ?? planner.plannedBreakDuration ?? 10} min
-                  </p>
-                </div>
-                <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Break Interval</p>
-                  <p className="font-semibold">
-                    {planner.adaptiveConfig?.breakInterval ?? planner.breakIntervalMinutes ?? 45} min
-                  </p>
-                </div>
-                <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">Mode</p>
-                  <p className="font-semibold">{planner?.burnoutMode ?? "Normal"}</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">
-                No planned sessions yet. Generate one from the planner.
-              </p>
-            )}
-          </Card>
+          </div>
 
-          <QuickActions quickActions={quickActions} onAction={handleQuickAction} />
+          {/* Section 2: Today's Plan mini */}
+          {planner && (
+            <div>
+              <p className="text-sm font-semibold mb-2" style={{ color: "#374151" }}>Today's Plan</p>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { label: "FOCUS",    value: `${planner.adaptiveConfig?.focusDuration ?? planner.plannedFocusDuration ?? 45} min` },
+                  { label: "BREAK",    value: `${planner.adaptiveConfig?.breakDuration ?? planner.plannedBreakDuration ?? 10} min` },
+                  { label: "INTERVAL", value: `${planner.adaptiveConfig?.breakInterval ?? planner.breakIntervalMinutes ?? 45} min` },
+                  { label: "MODE",     value: planner?.burnoutMode ?? "Normal", isMode: true },
+                ].map((item, i) => (
+                  <div
+                    key={i}
+                    className="px-4 py-2.5 rounded-xl"
+                    style={
+                      item.isMode
+                        ? { background: modeStyle.bg, border: `1px solid ${modeStyle.bg}` }
+                        : { background: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.95)" }
+                    }
+                  >
+                    <p
+                      className="text-[9px] font-bold uppercase tracking-widest"
+                      style={{ color: item.isMode ? modeStyle.color : "#9ca3af" }}
+                    >
+                      {item.label}
+                    </p>
+                    <p
+                      className="text-sm font-bold"
+                      style={{ color: item.isMode ? modeStyle.color : "#1a1a1a" }}
+                    >
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 3: Weekly Study Chart */}
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "#374151" }}>Weekly Study Hours</p>
+                <p className="text-xs" style={{ color: "#9ca3af" }}>Study consistency across the week</p>
+              </div>
+            </div>
+            <WeeklyStudyChart weeklyData={weeklyData} transparent />
+          </div>
         </div>
+
+        {/* ── Burnout light glassmorphic card (col 3, row 1) ─────────────────────────────── */}
+        <div
+          className="col-span-1 rounded-3xl p-6 flex flex-col items-center justify-center relative overflow-hidden border-0"
+          style={{ 
+            background: modeStyle.cardGradient,
+            backdropFilter: "blur(12px)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
+            minHeight: 160 
+          }}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "#6b7280" }}>
+            BURNOUT LEVEL
+          </p>
+          <BurnoutEmojiIndicator score={burnoutScore} desc={burnoutDesc} />
+        </div>
+
+        {/* ── Study Distribution (col 3, row 2) ────────────────────────────── */}
+        <div
+          className="col-span-1 rounded-3xl p-5 flex flex-col"
+          style={{ background: "#F7F3EE" }}
+        >
+          <StudyCategoryChart categoryData={categoryData} compact />
+        </div>
+
       </div>
-    </motion.div>
+    </div>
   );
 };
 

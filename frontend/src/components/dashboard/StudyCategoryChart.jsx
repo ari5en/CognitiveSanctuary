@@ -1,15 +1,17 @@
 import React from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import Card from "../ui/Card";
 
-const COLORS = ["#7c3aed", "#0284c7", "#d97706", "#15803d", "#e11d48"];
+const COLORS = ["#22c55e", "#38bdf8", "#f59e0b", "#064e3b", "#f43f5e"];
 
 const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-slate-100 rounded-xl px-3 py-2 shadow-card-hover text-xs">
-      <p className="font-semibold text-slate-700">{payload[0].name}</p>
-      <p className="text-slate-500">{payload[0].value} session{payload[0].value !== 1 ? "s" : ""}</p>
+    <div
+      className="rounded-xl px-3 py-2 text-xs shadow-lg"
+      style={{ background: "rgba(255,255,255,0.95)", border: "1px solid rgba(0,0,0,0.06)" }}
+    >
+      <p className="font-semibold" style={{ color: "#374151" }}>{payload[0].name}</p>
+      <p style={{ color: "#6b7280" }}>{payload[0].value} session{payload[0].value !== 1 ? "s" : ""}</p>
     </div>
   );
 };
@@ -17,10 +19,10 @@ const CustomTooltip = ({ active, payload }) => {
 const renderLegend = (props) => {
   const { payload } = props;
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 justify-center mt-3">
+    <ul className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-2">
       {payload.map((entry, i) => (
-        <li key={i} className="flex items-center gap-1.5 text-xs text-slate-500">
-          <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ background: entry.color }} />
+        <li key={i} className="flex items-center gap-1 text-xs" style={{ color: "#6b7280" }}>
+          <span className="w-2 h-2 rounded-full inline-block flex-shrink-0" style={{ background: entry.color }} />
           {entry.value}
         </li>
       ))}
@@ -29,31 +31,31 @@ const renderLegend = (props) => {
 };
 
 /**
- * @param {{ categoryData: Array<{name: string, value: number}> }} props
+ * @param {{ categoryData: Array<{name: string, value: number}>, compact?: boolean }} props
  */
-const StudyCategoryChart = ({ categoryData }) => {
+const StudyCategoryChart = ({ categoryData, compact }) => {
   const hasData = categoryData && categoryData.length > 0 && categoryData.some(d => d.value > 0);
 
   return (
-    <Card>
-      <div className="mb-4">
-        <p className="font-semibold text-slate-800">Study Distribution</p>
-        <p className="text-xs text-slate-400 mt-0.5">Sessions by category</p>
+    <div className="flex flex-col h-full">
+      <div className="mb-3">
+        <p className="font-semibold text-sm" style={{ color: "#1a1a1a" }}>Study Distribution</p>
+        <p className="text-xs mt-0.5" style={{ color: "#9ca3af" }}>Sessions by category</p>
       </div>
 
       {!hasData ? (
-        <div className="flex items-center justify-center h-40 text-slate-300 text-sm">
+        <div className="flex-1 flex items-center justify-center text-sm" style={{ color: "#d1d5db" }}>
           No session data yet
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={compact ? 160 : 200}>
           <PieChart>
             <Pie
               data={categoryData}
               cx="50%"
               cy="45%"
-              outerRadius={70}
-              innerRadius={40}
+              outerRadius={compact ? 55 : 70}
+              innerRadius={compact ? 30 : 40}
               paddingAngle={3}
               dataKey="value"
             >
@@ -66,7 +68,7 @@ const StudyCategoryChart = ({ categoryData }) => {
           </PieChart>
         </ResponsiveContainer>
       )}
-    </Card>
+    </div>
   );
 };
 

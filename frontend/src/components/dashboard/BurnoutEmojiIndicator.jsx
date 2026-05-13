@@ -1,46 +1,137 @@
 import React from "react";
-import Card from "../ui/Card";
+
+// Apple-style emoji image URLs (using Apple emoji CDN via emojicdn.elk.sh)
+// Each key is the emoji codepoint for a recognizable Apple emoticon
+const APPLE_EMOJI_URL = (codepoint) =>
+  `https://emojicdn.elk.sh/${encodeURIComponent(codepoint)}?style=apple`;
 
 const LEVELS = [
-  { max: 25,  emoji: "😄", label: "Healthy",      bg: "bg-emerald-50",  text: "text-emerald-700", ring: "ring-emerald-200" },
-  { max: 50,  emoji: "🙂", label: "Moderate",     bg: "bg-sky-50",      text: "text-sky-700",     ring: "ring-sky-200"     },
-  { max: 75,  emoji: "😐", label: "Fatigue",      bg: "bg-amber-50",    text: "text-amber-700",   ring: "ring-amber-200"   },
-  { max: 100, emoji: "😫", label: "Burnout Risk", bg: "bg-rose-50",     text: "text-rose-700",    ring: "ring-rose-200"    },
+  {
+    max: 25,
+    codepoint: "😄",
+    label: "Healthy",
+    color: "#22c55e",
+    desc: "You're in great shape. Keep up the good work!",
+  },
+  {
+    max: 50,
+    codepoint: "🙂",
+    label: "Moderate",
+    color: "#38bdf8",
+    desc: "Mild fatigue detected. Breaks are helping.",
+  },
+  {
+    max: 75,
+    codepoint: "😐",
+    label: "Fatigue",
+    color: "#f59e0b",
+    desc: "Noticeable fatigue. Breaks are important.",
+  },
+  {
+    max: 100,
+    codepoint: "😫",
+    label: "Burnout Risk",
+    color: "#f43f5e",
+    desc: "High burnout detected. Recovery is recommended.",
+  },
 ];
 
-const getLevel = (score) => LEVELS.find(l => score <= l.max) || LEVELS[LEVELS.length - 1];
+const getLevel = (score) =>
+  LEVELS.find((l) => score <= l.max) || LEVELS[LEVELS.length - 1];
 
 /**
- * @param {{ score: number }} props
+ * @param {{ score: number, dark?: boolean, desc?: string }} props
  */
-const BurnoutEmojiIndicator = ({ score }) => {
+const BurnoutEmojiIndicator = ({ score, dark = false, desc }) => {
   const level = getLevel(score ?? 0);
-  const pct = Math.min(100, Math.max(0, score ?? 0));
+  const pct = Math.round(Math.min(100, Math.max(0, score ?? 0)));
+  const emojiSrc = APPLE_EMOJI_URL(level.codepoint);
+  const description = desc || level.desc;
 
-  return (
-    <Card className={`flex flex-col items-center justify-center py-7 gap-4 ${level.bg}`}>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Burnout Level</p>
-
-      <div className={`w-24 h-24 rounded-full flex items-center justify-center text-5xl shadow-inner ring-4 ${level.ring} bg-white`}>
-        {level.emoji}
-      </div>
-
-      <div className="text-center">
-        <p className={`text-2xl font-bold ${level.text}`}>{pct}%</p>
-        <p className={`text-sm font-semibold ${level.text} mt-0.5`}>{level.label}</p>
-      </div>
-
-      {/* Mini bar */}
-      <div className="w-full max-w-[140px] h-2 bg-white rounded-full overflow-hidden ring-1 ring-slate-100">
+  if (dark) {
+    return (
+      <div className="flex flex-col items-center gap-3 w-full">
+        {/* Apple emoji image */}
         <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{
-            width: `${pct}%`,
-            background: pct <= 25 ? "#16a34a" : pct <= 50 ? "#0284c7" : pct <= 75 ? "#d97706" : "#e11d48",
-          }}
+          className="w-20 h-20 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(255,255,255,0.08)" }}
+        >
+          <img
+            src={emojiSrc}
+            alt={level.label}
+            width={52}
+            height={52}
+            style={{ imageRendering: "crisp-edges" }}
+            draggable={false}
+          />
+        </div>
+
+        {/* Score + label */}
+        <div className="text-center">
+          <p className="text-2xl font-bold" style={{ color: level.color }}>
+            {pct}%
+          </p>
+          <p className="text-sm font-semibold mt-0.5" style={{ color: level.color }}>
+            {level.label}
+          </p>
+        </div>
+
+        {/* Bar */}
+        <div
+          className="w-full max-w-[130px] h-2 rounded-full overflow-hidden"
+          style={{ background: "rgba(255,255,255,0.1)" }}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${pct}%`, background: level.color }}
+          />
+        </div>
+
+        {/* Description */}
+        <p
+          className="text-center text-[11px] leading-relaxed mt-1"
+          style={{ color: "#9ca3af" }}
+        >
+          {description}
+        </p>
+      </div>
+    );
+  }
+
+  // Light card version
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div
+        className="w-20 h-20 rounded-full flex items-center justify-center ring-4 ring-white shadow-inner"
+        style={{ background: "#f3f4f6" }}
+      >
+        <img
+          src={emojiSrc}
+          alt={level.label}
+          width={52}
+          height={52}
+          style={{ imageRendering: "crisp-edges" }}
+          draggable={false}
         />
       </div>
-    </Card>
+      <div className="text-center">
+        <p className="text-xl font-bold" style={{ color: level.color }}>
+          {pct}%
+        </p>
+        <p className="text-sm font-semibold mt-0.5" style={{ color: level.color }}>
+          {level.label}
+        </p>
+      </div>
+      <div className="w-full max-w-[130px] h-2 bg-white rounded-full overflow-hidden ring-1 ring-slate-100">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, background: level.color }}
+        />
+      </div>
+      <p className="text-center text-[11px] leading-relaxed mt-1" style={{ color: "#6b7280" }}>
+        {description}
+      </p>
+    </div>
   );
 };
 

@@ -1,33 +1,20 @@
 import React from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import Topbar from './Topbar';
 
 const Layout = () => {
-  const location = useLocation();
-  // Sessions page is a full-screen execution environment — hide sidebar & topbar
-  const isSessionsPage = location.pathname === '/sessions';
-
-  if (isSessionsPage) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <Outlet />
-      </div>
-    );
-  }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen overflow-hidden" style={{ background: '#E8E4DC' }}>
       <Sidebar />
 
-      {/* Right Panel */}
-      <div className="flex-1 ml-52 flex flex-col overflow-hidden">
-        <Topbar />
-
+      {/* Right Panel — offset by sidebar width */}
+      <div className="flex-1 ml-[80px] overflow-hidden flex flex-col">
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto pt-24 px-12 py-10">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto pl-4 pr-8 py-8">
+          <div className="h-full">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

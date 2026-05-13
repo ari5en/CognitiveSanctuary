@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Play, Pause, Square, Coffee, CheckCircle2, Plus, ArrowLeft,
-  Clock, AlertCircle, Loader2, SkipForward, Timer,
+  Play, Pause, Square, Coffee, CheckCircle2, ArrowLeft,
+  AlertCircle, Loader2, SkipForward, Timer,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { completeSession, getSessionsByUser, getTasksBySession, updateTask } from "../services/api";
@@ -10,96 +10,115 @@ import { completeSession, getSessionsByUser, getTasksBySession, updateTask } fro
 // ── Constants ─────────────────────────────────────────────────────────────────
 const Phase = { Idle: "IDLE", Focus: "FOCUS", BreakPrompt: "BREAK_PROMPT", Break: "BREAK", Evaluation: "EVALUATION", Result: "RESULT" };
 
+// Apple-style emoji via CDN
+const appleEmoji = (cp) => `https://emojicdn.elk.sh/${encodeURIComponent(cp)}?style=apple`;
+
 const MOOD_OPTIONS = [
-  { id: 1, emoji: "😊", label: "Happy" },
-  { id: 2, emoji: "😐", label: "Neutral" },
-  { id: 3, emoji: "😟", label: "Tired" },
-  { id: 4, emoji: "🤯", label: "Exhausted" },
+  { id: 1, codepoint: "😊", label: "Happy" },
+  { id: 2, codepoint: "😐", label: "Neutral" },
+  { id: 3, codepoint: "😟", label: "Tired" },
+  { id: 4, codepoint: "🤯", label: "Exhausted" },
 ];
 
 const ADD_TIME_OPTIONS = [
-  { focusMin: 15, breakMin: 5,   label: "+15 min focus / +5 min break" },
-  { focusMin: 10, breakMin: 2.5, label: "+10 min focus / +2.5 min break" },
-  { focusMin: 5,  breakMin: 0,   label: "+5 min focus / no extra break" },
+  { focusMin: 15, breakMin: 5,   label: "+15 min" },
+  { focusMin: 10, breakMin: 2.5, label: "+10 min" },
+  { focusMin: 5,  breakMin: 0,   label: "+5 min"  },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const RESULT_LEVELS = [
+  { max: 25,  codepoint: "😄", color: "#22c55e", desc: "Great work! You're in excellent shape."      },
+  { max: 50,  codepoint: "🙂", color: "#38bdf8", desc: "Moderate fatigue. Keep rest consistent."     },
+  { max: 75,  codepoint: "😐", color: "#f59e0b", desc: "Noticeable fatigue. Breaks are important."   },
+  { max: 100, codepoint: "😫", color: "#f43f5e", desc: "High burnout risk. Recovery mode activated." },
+];
+
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-// ── Modals ────────────────────────────────────────────────────────────────────
+// ── Modal wrapper ─────────────────────────────────────────────────────────────
 const ModalBase = ({ children }) => (
   <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 flex items-center justify-center px-4"
+    style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}
   >
     <motion.div
       initial={{ scale: 0.92, y: 20, opacity: 0 }}
       animate={{ scale: 1, y: 0, opacity: 1 }}
       exit={{ scale: 0.92, y: 20, opacity: 0 }}
       transition={{ type: "spring", stiffness: 320, damping: 28 }}
-      className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8"
+      className="rounded-3xl shadow-2xl w-full max-w-md p-8"
+      style={{ background: "#F7F3EE" }}
     >
       {children}
     </motion.div>
   </motion.div>
 );
 
+// ── Confirm Exit Modal ────────────────────────────────────────────────────────
 const ConfirmExitModal = ({ onConfirm, onCancel }) => (
   <ModalBase>
     <div className="text-center space-y-4">
-      <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto">
-        <AlertCircle size={32} className="text-rose-500" />
+      <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: "#ffe4e6" }}>
+        <AlertCircle size={32} style={{ color: "#e11d48" }} />
       </div>
-      <h2 className="text-xl font-bold text-slate-800">End this session?</h2>
-      <p className="text-sm text-slate-500">Your progress will be saved and burnout will be evaluated.</p>
+      <h2 className="text-xl font-bold" style={{ color: "#1a1a1a" }}>End this session?</h2>
+      <p className="text-sm" style={{ color: "#6b7280" }}>Your progress will be saved and burnout will be evaluated.</p>
       <div className="flex gap-3 pt-2">
-        <button onClick={onCancel} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors">Keep Going</button>
-        <button onClick={onConfirm} className="flex-1 py-3 rounded-xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 transition-colors">End Session</button>
+        <button onClick={onCancel} className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all" style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.95)", color: "#374151" }}>Keep Going</button>
+        <button onClick={onConfirm} className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all" style={{ background: "#e11d48", color: "#fff" }}>End Session</button>
       </div>
     </div>
   </ModalBase>
 );
 
+// ── Skip Break Modal ──────────────────────────────────────────────────────────
 const SkipBreakModal = ({ onConfirm, onCancel }) => (
   <ModalBase>
     <div className="text-center space-y-4">
-      <div className="text-5xl">☕</div>
-      <h2 className="text-xl font-bold text-slate-800">Skip your break?</h2>
-      <p className="text-sm text-slate-500">Skipping breaks increases burnout risk. This will be recorded.</p>
+      <img src={appleEmoji("☕")} alt="coffee" width={56} height={56} className="mx-auto" draggable={false} />
+      <h2 className="text-xl font-bold" style={{ color: "#1a1a1a" }}>Skip your break?</h2>
+      <p className="text-sm" style={{ color: "#6b7280" }}>Skipping breaks increases burnout risk. This will be recorded.</p>
       <div className="flex gap-3 pt-2">
-        <button onClick={onCancel} className="flex-1 py-3 rounded-xl bg-sanctuary-900 text-white text-sm font-semibold hover:bg-sanctuary-800 transition-colors">Take Break</button>
-        <button onClick={onConfirm} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-500 text-sm font-semibold hover:bg-slate-50 transition-colors">Skip Anyway</button>
+        <button onClick={onCancel} className="flex-1 py-3 rounded-2xl text-sm font-semibold" style={{ background: "#064e3b", color: "#fff" }}>Take Break</button>
+        <button onClick={onConfirm} className="flex-1 py-3 rounded-2xl text-sm font-semibold" style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.95)", color: "#6b7280" }}>Skip Anyway</button>
       </div>
     </div>
   </ModalBase>
 );
 
+// ── Mood Modal ────────────────────────────────────────────────────────────────
 const MoodModal = ({ onSubmit, isSubmitting }) => {
   const [mood, setMood] = useState(2);
   return (
     <ModalBase>
-      <h2 className="text-xl font-bold text-slate-800 mb-2">How did the session feel? 🎉</h2>
-      <p className="text-sm text-slate-500 mb-6">This helps calibrate your burnout score.</p>
+      <h2 className="text-xl font-bold mb-1" style={{ color: "#1a1a1a" }}>
+        How did the session feel?{" "}
+        <img src={appleEmoji("🎉")} alt="party" width={24} height={24} className="inline-block align-middle" draggable={false} />
+      </h2>
+      <p className="text-sm mb-6" style={{ color: "#6b7280" }}>This helps calibrate your burnout score.</p>
       <div className="grid grid-cols-2 gap-3 mb-6">
         {MOOD_OPTIONS.map(m => (
           <button
             key={m.id}
             onClick={() => setMood(m.id)}
-            className={`flex flex-col items-center gap-1.5 py-4 rounded-2xl border-2 transition-all ${
-              mood === m.id ? "border-sanctuary-600 bg-sanctuary-50" : "border-slate-100 hover:border-slate-200"
-            }`}
+            className="flex flex-col items-center gap-2 py-4 rounded-2xl transition-all"
+            style={
+              mood === m.id
+                ? { background: "#dcfce7", border: "2px solid #22c55e" }
+                : { background: "rgba(255,255,255,0.8)", border: "2px solid transparent" }
+            }
           >
-            <span className="text-3xl">{m.emoji}</span>
-            <span className="text-xs font-semibold text-slate-600">{m.label}</span>
+            <img src={appleEmoji(m.codepoint)} alt={m.label} width={44} height={44} draggable={false} />
+            <span className="text-xs font-semibold" style={{ color: "#374151" }}>{m.label}</span>
           </button>
         ))}
       </div>
       <button
         onClick={() => onSubmit(mood)}
         disabled={isSubmitting}
-        className="w-full py-3.5 bg-sanctuary-900 text-white font-semibold rounded-xl hover:bg-sanctuary-800 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+        className="w-full py-3.5 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+        style={{ background: "#064e3b", color: "#fff" }}
       >
         {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : null}
         {isSubmitting ? "Saving…" : "Save & See Results →"}
@@ -108,29 +127,38 @@ const MoodModal = ({ onSubmit, isSubmitting }) => {
   );
 };
 
+// ── Result Screen ─────────────────────────────────────────────────────────────
 const ResultScreen = ({ score, level, config, onContinue }) => {
-  const emoji = score <= 25 ? "😄" : score <= 50 ? "🙂" : score <= 75 ? "😐" : "😫";
-  const color = score <= 25 ? "text-emerald-600" : score <= 50 ? "text-sky-600" : score <= 75 ? "text-amber-600" : "text-rose-600";
-  const desc  = score <= 25 ? "Great work! You're in excellent shape." : score <= 50 ? "Moderate fatigue. Keep rest consistent." : score <= 75 ? "Noticeable fatigue. Breaks are important." : "High burnout risk. Recovery mode activated.";
+  const lvl = RESULT_LEVELS.find(l => score <= l.max) || RESULT_LEVELS[RESULT_LEVELS.length - 1];
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="bg-white rounded-3xl shadow-2xl p-12 max-w-sm w-full text-center space-y-6">
-        <div className="text-7xl">{emoji}</div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Burnout Result</p>
-          <p className={`text-5xl font-bold ${color}`}>{score}%</p>
-          <p className={`text-lg font-semibold ${color} mt-1`}>{level}</p>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: "#E8E4DC" }}
+    >
+      <div className="rounded-3xl shadow-2xl p-12 max-w-sm w-full text-center space-y-6" style={{ background: "#F7F3EE" }}>
+        <div className="flex justify-center">
+          <img src={appleEmoji(lvl.codepoint)} alt={level} width={80} height={80} draggable={false} />
         </div>
-        <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "#9ca3af" }}>Burnout Result</p>
+          <p className="text-5xl font-bold" style={{ color: lvl.color }}>{score}%</p>
+          <p className="text-lg font-semibold mt-1" style={{ color: lvl.color }}>{level}</p>
+        </div>
+        <p className="text-sm leading-relaxed" style={{ color: "#6b7280" }}>{lvl.desc}</p>
         {config && (
-          <div className="bg-slate-50 rounded-2xl p-4 text-left space-y-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Next Session (adapted)</p>
-            <p className="text-xs text-slate-600">Focus: <strong>{config.focusDuration} min</strong></p>
-            <p className="text-xs text-slate-600">Break every: <strong>{config.breakInterval} min</strong></p>
-            <p className="text-xs text-slate-600">Break duration: <strong>{config.breakDuration} min</strong></p>
+          <div className="rounded-2xl p-4 text-left space-y-1" style={{ background: "rgba(255,255,255,0.8)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "#9ca3af" }}>Next Session (Adapted)</p>
+            <p className="text-xs" style={{ color: "#374151" }}>Focus: <strong>{config.focusDuration} min</strong></p>
+            <p className="text-xs" style={{ color: "#374151" }}>Break every: <strong>{config.breakInterval} min</strong></p>
+            <p className="text-xs" style={{ color: "#374151" }}>Break duration: <strong>{config.breakDuration} min</strong></p>
           </div>
         )}
-        <button onClick={onContinue} className="w-full py-3.5 bg-sanctuary-900 text-white font-semibold rounded-xl hover:bg-sanctuary-800 transition-colors">
+        <button
+          onClick={onContinue}
+          className="w-full py-3.5 rounded-2xl font-semibold transition-all"
+          style={{ background: "#064e3b", color: "#fff" }}
+        >
           Back to Dashboard →
         </button>
       </div>
@@ -141,26 +169,18 @@ const ResultScreen = ({ score, level, config, onContinue }) => {
 // ── Timer Ring ────────────────────────────────────────────────────────────────
 const TimerRing = ({ secondsLeft, totalSeconds, isFocus }) => {
   const pct = totalSeconds > 0 ? (totalSeconds - secondsLeft) / totalSeconds : 0;
-  const r = 90;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - pct);
-  const color = isFocus ? "#15803d" : "#0284c7";
-
+  const r = 90, circ = 2 * Math.PI * r;
+  const color = isFocus ? "#064e3b" : "#0284c7";
   return (
     <div className="relative w-56 h-56 mx-auto">
       <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
-        <circle cx="100" cy="100" r={r} fill="none" stroke="#f1f5f9" strokeWidth="10" />
-        <circle
-          cx="100" cy="100" r={r} fill="none"
-          stroke={color} strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 1s linear" }}
-        />
+        <circle cx="100" cy="100" r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="10" />
+        <circle cx="100" cy="100" r={r} fill="none" stroke={color} strokeWidth="10"
+          strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+          style={{ transition: "stroke-dashoffset 1s linear" }} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-5xl font-light text-slate-800 tabular-nums tracking-tight">{fmt(secondsLeft)}</span>
+        <span className="text-5xl font-light tabular-nums tracking-tight" style={{ color: "#fff" }}>{fmt(secondsLeft)}</span>
         <span className="text-xs font-bold uppercase tracking-widest mt-1" style={{ color }}>{isFocus ? "Focus" : "Break"}</span>
       </div>
     </div>
@@ -172,15 +192,15 @@ const SessionsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [session, setSession]         = useState(null);
-  const [tasks, setTasks]             = useState([]);
-  const [phase, setPhase]             = useState(Phase.Idle);
-  const [isRunning, setIsRunning]     = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [session, setSession]           = useState(null);
+  const [tasks, setTasks]               = useState([]);
+  const [phase, setPhase]               = useState(Phase.Idle);
+  const [isRunning, setIsRunning]       = useState(false);
+  const [secondsLeft, setSecondsLeft]   = useState(0);
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [focusElapsed, setFocusElapsed] = useState(0);
-  const [breaksSkipped, setBreaksSkipped] = useState(0);
-  const [sessionStart, setSessionStart]   = useState(null);
+  const [breaksSkipped, setBreaksSkipped]   = useState(0);
+  const [sessionStart, setSessionStart]     = useState(null);
   const [addedBreakSecs, setAddedBreakSecs] = useState(0);
 
   const [showConfirmExit, setShowConfirmExit] = useState(false);
@@ -188,8 +208,7 @@ const SessionsPage = () => {
   const [showMood, setShowMood]               = useState(false);
   const [isSubmitting, setIsSubmitting]       = useState(false);
   const [resultData, setResultData]           = useState(null);
-
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError]             = useState("");
 
   const sessionIdFromUrl = useMemo(() => {
     const p = new URLSearchParams(location.search).get("sessionId");
@@ -197,11 +216,9 @@ const SessionsPage = () => {
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [location.search]);
 
-  // Derived
-  const focusSecs  = useMemo(() => Math.max(60, Math.round((session?.plannedFocusDuration || session?.planned_focus_duration || 45) * 60)), [session]);
-  const breakSecs  = useMemo(() => Math.max(60, Math.round(((session?.plannedBreakDuration || session?.planned_break_duration || 10) * 60) + addedBreakSecs)), [session, addedBreakSecs]);
+  const focusSecs = useMemo(() => Math.max(60, Math.round((session?.plannedFocusDuration || session?.planned_focus_duration || 45) * 60)), [session]);
+  const breakSecs = useMemo(() => Math.max(60, Math.round(((session?.plannedBreakDuration || session?.planned_break_duration || 10) * 60) + addedBreakSecs)), [session, addedBreakSecs]);
 
-  // Load session
   useEffect(() => {
     (async () => {
       try {
@@ -211,29 +228,21 @@ const SessionsPage = () => {
         if (!target) { setLoadError("No planned sessions. Generate one on the Schedule page."); return; }
         setSession(target);
         setPhase(Phase.Idle);
-        const sid = target.sessionId || target.session_id;
-        const t = await getTasksBySession(sid).catch(() => []);
+        const t = await getTasksBySession(target.sessionId || target.session_id).catch(() => []);
         setTasks(t);
-      } catch {
-        setLoadError("Unable to load session.");
-      }
+      } catch { setLoadError("Unable to load session."); }
     })();
   }, [sessionIdFromUrl]);
 
-  // Countdown
   useEffect(() => {
     if (!isRunning || secondsLeft <= 0) return;
     const id = setInterval(() => {
-      setSecondsLeft(p => {
-        if (p <= 1) { clearInterval(id); return 0; }
-        return p - 1;
-      });
+      setSecondsLeft(p => { if (p <= 1) { clearInterval(id); return 0; } return p - 1; });
       if (phase === Phase.Focus) setFocusElapsed(p => p + 1);
     }, 1000);
     return () => clearInterval(id);
   }, [isRunning, secondsLeft, phase]);
 
-  // Phase transitions on timer expire
   useEffect(() => {
     if (secondsLeft !== 0) return;
     if (phase === Phase.Focus) { setIsRunning(false); setPhase(Phase.BreakPrompt); }
@@ -241,94 +250,43 @@ const SessionsPage = () => {
   }, [secondsLeft, phase]);
 
   const startFocus = useCallback(() => {
-    setPhase(Phase.Focus);
-    setSecondsLeft(focusSecs);
-    setTotalSeconds(focusSecs);
-    setIsRunning(true);
+    setPhase(Phase.Focus); setSecondsLeft(focusSecs); setTotalSeconds(focusSecs); setIsRunning(true);
     if (!sessionStart) setSessionStart(new Date().toISOString());
   }, [focusSecs, sessionStart]);
 
-  const handlePlay = () => {
-    if (phase === Phase.Idle) { startFocus(); return; }
-    setIsRunning(r => !r);
-  };
-
-  const handleTakeBreak = () => {
-    setPhase(Phase.Break);
-    setSecondsLeft(breakSecs);
-    setTotalSeconds(breakSecs);
-    setIsRunning(true);
-  };
-
-  const handleSkipBreakConfirm = () => {
-    setShowSkipBreak(false);
-    setBreaksSkipped(p => p + 1);
-    startFocus();
-  };
-
-  const handleAddTime = (opt) => {
-    setSecondsLeft(p => p + opt.focusMin * 60);
-    setTotalSeconds(p => p + opt.focusMin * 60);
-    setAddedBreakSecs(p => p + opt.breakMin * 60);
-  };
-
-  const handleExitConfirm = () => {
-    setShowConfirmExit(false);
-    setIsRunning(false);
-    setPhase(Phase.Evaluation);
-    setShowMood(true);
-  };
+  const handlePlay = () => { if (phase === Phase.Idle) { startFocus(); return; } setIsRunning(r => !r); };
+  const handleTakeBreak = () => { setPhase(Phase.Break); setSecondsLeft(breakSecs); setTotalSeconds(breakSecs); setIsRunning(true); };
+  const handleSkipBreakConfirm = () => { setShowSkipBreak(false); setBreaksSkipped(p => p + 1); startFocus(); };
+  const handleAddTime = (opt) => { setSecondsLeft(p => p + opt.focusMin * 60); setTotalSeconds(p => p + opt.focusMin * 60); setAddedBreakSecs(p => p + opt.breakMin * 60); };
+  const handleExitConfirm = () => { setShowConfirmExit(false); setIsRunning(false); setPhase(Phase.Evaluation); setShowMood(true); };
 
   const handleMoodSubmit = async (mood) => {
     setIsSubmitting(true);
     try {
-      const endTime      = new Date().toISOString();
-      const studyDuration = +(focusElapsed / 60).toFixed(2);
+      const endTime = new Date().toISOString();
       const sid = session.sessionId || session.session_id;
-      const data = await completeSession(sid, {
-        startTime:     sessionStart || endTime,
-        endTime,
-        studyDuration,
-        mood,
-        breaksSkipped,
-      });
-      setResultData({
-        score:  data.burnoutScore ?? 0,
-        level:  data.burnoutLevel ?? "Stable",
-        config: data.adaptiveConfig,
-      });
-      setShowMood(false);
-      setPhase(Phase.Result);
-    } catch {
-      setIsSubmitting(false);
-    }
+      const data = await completeSession(sid, { startTime: sessionStart || endTime, endTime, studyDuration: +(focusElapsed / 60).toFixed(2), mood, breaksSkipped });
+      setResultData({ score: data.burnoutScore ?? 0, level: data.burnoutLevel ?? "Stable", config: data.adaptiveConfig });
+      setShowMood(false); setPhase(Phase.Result);
+    } catch { setIsSubmitting(false); }
   };
 
   const handleTaskToggle = async (task) => {
     const newStatus = task.status === "Completed" ? "Pending" : "Completed";
     await updateTask(task.taskId || task.task_id, { title: task.title, estimatedTime: task.estimatedTime || task.estimated_time || 30, status: newStatus });
     const sid = session.sessionId || session.session_id;
-    const updated = await getTasksBySession(sid).catch(() => tasks);
-    setTasks(updated);
+    setTasks(await getTasksBySession(sid).catch(() => tasks));
   };
 
-  const handleContinue = () => {
-    sessionStorage.setItem("cs_adapting", "1");
-    navigate("/dashboard");
-  };
+  const handleContinue = () => { sessionStorage.setItem("cs_adapting", "1"); navigate("/dashboard"); };
 
-  // Result screen
-  if (phase === Phase.Result && resultData) {
-    return <ResultScreen {...resultData} onContinue={handleContinue} />;
-  }
+  if (phase === Phase.Result && resultData) return <ResultScreen {...resultData} onContinue={handleContinue} />;
 
   const isFocusPhase = phase === Phase.Focus;
   const isBreakPhase = phase === Phase.Break;
-  const isActiveTimer = isFocusPhase || isBreakPhase;
-  const canAddTime = isFocusPhase;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
+    <div className="max-w-[1100px] mx-auto flex flex-col h-full">
       {/* Modals */}
       <AnimatePresence>
         {showConfirmExit && <ConfirmExitModal onConfirm={handleExitConfirm} onCancel={() => setShowConfirmExit(false)} />}
@@ -336,146 +294,178 @@ const SessionsPage = () => {
         {showMood       && <MoodModal onSubmit={handleMoodSubmit} isSubmitting={isSubmitting} />}
       </AnimatePresence>
 
-      {/* Break overlay — disables navigation feeling */}
+      {/* Break indicator bar */}
       {isBreakPhase && (
         <div className="fixed inset-0 z-30 pointer-events-none">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-sky-500 animate-pulse" />
+          <div className="absolute top-0 left-0 right-0 h-1 animate-pulse" style={{ background: "#0284c7" }} />
           <div className="absolute bottom-6 left-0 right-0 flex justify-center">
-            <span className="bg-sky-600 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg">
-              🔒 Break in progress — rest and recharge
+            <span className="text-xs font-bold px-4 py-2 rounded-full shadow-lg" style={{ background: "#0284c7", color: "#fff" }}>
+              Break in progress — rest and recharge
             </span>
           </div>
         </div>
       )}
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-8 pt-8 pb-4">
-        <button onClick={() => navigate("/schedule")} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 text-sm font-medium transition-colors">
-          <ArrowLeft size={18} /> Back to Schedule
-        </button>
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
-          <Timer size={14} /> Session Runtime
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-7">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight" style={{ color: "#1a1a1a" }}>
+            Focus Session
+          </h1>
+          <p className="flex items-center gap-1.5 text-sm font-medium mt-1 uppercase tracking-widest" style={{ color: "#9ca3af" }}>
+            <Timer size={14} /> Session Runtime
+          </p>
         </div>
+
         <button
           onClick={() => setShowConfirmExit(true)}
           disabled={isBreakPhase}
-          className="flex items-center gap-2 text-rose-500 hover:text-rose-700 text-sm font-medium transition-colors disabled:opacity-30"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold transition-all disabled:opacity-30"
+          style={{ 
+            background: "rgba(225,29,72,0.1)", 
+            backdropFilter: "blur(12px)", 
+            border: "1px solid rgba(225,29,72,0.2)", 
+            boxShadow: "0 2px 10px rgba(225,29,72,0.05)",
+            color: "#e11d48" 
+          }}
         >
           <Square size={16} /> Exit Session
         </button>
       </div>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-8 pb-10 gap-8">
+      <div className="w-full pb-10">
         {loadError ? (
-          <div className="bg-white rounded-2xl p-10 text-center shadow-card">
-            <p className="text-slate-500">{loadError}</p>
-            <button onClick={() => navigate("/schedule")} className="mt-4 px-6 py-2 bg-sanctuary-900 text-white rounded-xl text-sm">Go to Schedule</button>
+          <div className="rounded-3xl p-10 text-center w-full" style={{ background: "#F7F3EE" }}>
+            <p style={{ color: "#6b7280" }}>{loadError}</p>
+            <button onClick={() => navigate("/schedule")} className="mt-4 px-6 py-2 rounded-2xl text-sm font-semibold" style={{ background: "#064e3b", color: "#fff" }}>Go to Schedule</button>
           </div>
         ) : !session ? (
-          <Loader2 size={32} className="animate-spin text-slate-400" />
+          <Loader2 size={32} className="animate-spin" style={{ color: "#9ca3af" }} />
         ) : (
-          <div className="w-full max-w-4xl flex gap-8 items-start">
+          <div className="w-full flex gap-4 items-start">
 
-            {/* Center: Timer */}
-            <div className="flex-1 flex flex-col items-center gap-6">
+            {/* ── Timer card (light) ─────────────────────────────────────────── */}
+            <div className="flex-1 flex flex-col items-center gap-4 rounded-3xl py-8 px-10 relative overflow-hidden" style={{ background: "#F7F3EE" }}>
+              
+              {/* Gradient blobs for visual interest since it's light now */}
+              <div className="absolute rounded-full pointer-events-none" style={{ width: 300, height: 300, background: "radial-gradient(circle, rgba(34,197,94,0.1) 0%, transparent 70%)", top: -50, left: -50, filter: "blur(40px)" }} />
+              <div className="absolute rounded-full pointer-events-none" style={{ width: 250, height: 250, background: "radial-gradient(circle, rgba(2,132,199,0.08) 0%, transparent 70%)", bottom: -50, right: -50, filter: "blur(40px)" }} />
+
               {/* Phase label */}
-              <AnimatePresence mode="wait">
-                <motion.div key={phase} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="text-center">
-                  {phase === Phase.Idle       && <p className="text-slate-400 text-sm font-medium">Press Play to start your focus session</p>}
-                  {phase === Phase.BreakPrompt && <p className="text-emerald-600 text-sm font-semibold">Focus block complete! Time for a break?</p>}
-                  {isFocusPhase              && <p className="text-sanctuary-700 text-sm font-semibold">Deep focus mode — stay in the zone</p>}
-                  {isBreakPhase              && <p className="text-sky-600 text-sm font-semibold">Take a real break — step away from the screen</p>}
-                </motion.div>
-              </AnimatePresence>
+              <div className="relative z-10 h-6">
+                <AnimatePresence mode="wait">
+                  <motion.div key={phase} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="text-center">
+                    {phase === Phase.Idle        && <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "#9ca3af" }}>Press Play to start focus</p>}
+                    {phase === Phase.BreakPrompt && <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "#15803d" }}>Focus complete! Take a break</p>}
+                    {isFocusPhase               && <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "#15803d" }}>Deep focus mode</p>}
+                    {isBreakPhase               && <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "#0284c7" }}>Break mode — recharge</p>}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
 
-              {/* Timer ring */}
-              {phase === Phase.BreakPrompt ? (
-                <div className="flex flex-col items-center gap-5">
-                  <div className="w-40 h-40 rounded-full bg-emerald-50 border-4 border-emerald-200 flex items-center justify-center">
-                    <Coffee size={48} className="text-emerald-500" />
+              {/* Break prompt or timer ring */}
+              <div className="relative z-10">
+                {phase === Phase.BreakPrompt ? (
+                  <div className="flex flex-col items-center gap-5 my-2">
+                    <div className="w-32 h-32 rounded-full flex items-center justify-center" style={{ background: "rgba(34,197,94,0.1)", border: "2px solid rgba(34,197,94,0.2)" }}>
+                      <Coffee size={40} style={{ color: "#15803d" }} />
+                    </div>
+                    <div className="flex gap-3 mt-2">
+                      <button onClick={handleTakeBreak} className="px-6 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 transition-all" style={{ background: "#064e3b", color: "#fff" }}>
+                        <Coffee size={16} /> Take Break
+                      </button>
+                      <button onClick={() => setShowSkipBreak(true)} className="px-6 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 transition-all" style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.9)", color: "#6b7280" }}>
+                        <SkipForward size={16} /> Skip
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-3">
-                    <button onClick={handleTakeBreak} className="px-6 py-3 bg-emerald-600 text-white rounded-full text-sm font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2">
-                      <Coffee size={16} /> Take Break
-                    </button>
-                    <button onClick={() => setShowSkipBreak(true)} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-full text-sm font-semibold hover:bg-slate-200 transition-colors flex items-center gap-2">
-                      <SkipForward size={16} /> Skip
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <TimerRing secondsLeft={secondsLeft} totalSeconds={totalSeconds || focusSecs} isFocus={!isBreakPhase} />
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    {/* Timer Ring */}
+                    <div className="relative w-56 h-56 mx-auto">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+                        <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(0,0,0,0.04)" strokeWidth="10" />
+                        <circle cx="100" cy="100" r="80" fill="none" stroke={isFocusPhase ? "#15803d" : "#0284c7"} strokeWidth="10"
+                          strokeLinecap="round" strokeDasharray={2 * Math.PI * 80} strokeDashoffset={(2 * Math.PI * 80) * (1 - (totalSeconds > 0 ? (totalSeconds - secondsLeft) / totalSeconds : 0))}
+                          style={{ transition: "stroke-dashoffset 1s linear" }} />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-5xl font-bold tabular-nums tracking-tighter" style={{ color: "#1a1a1a" }}>{fmt(secondsLeft)}</span>
+                        <span className="text-xs font-bold uppercase tracking-widest mt-2" style={{ color: isFocusPhase ? "#15803d" : "#0284c7" }}>
+                          {isFocusPhase ? "Focus" : "Break"}
+                        </span>
+                      </div>
+                    </div>
 
-                  {/* Play/Pause */}
-                  <div className="flex items-center gap-4">
+                    {/* Play/Pause */}
                     <button
                       onClick={handlePlay}
                       disabled={isBreakPhase}
-                      className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all disabled:opacity-50 ${
-                        isRunning
-                          ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                          : "bg-sanctuary-900 text-white hover:bg-sanctuary-800"
-                      }`}
+                      className="w-14 h-14 rounded-full flex items-center justify-center shadow-md transition-all disabled:opacity-50"
+                      style={isRunning ? { background: "rgba(255,255,255,0.8)", color: "#1a1a1a", border: "1px solid rgba(0,0,0,0.05)" } : { background: "#064e3b", color: "#fff" }}
                     >
-                      {isRunning ? <Pause size={26} /> : <Play size={26} className="ml-1" />}
+                      {isRunning ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
                     </button>
-                  </div>
 
-                  {/* Add time */}
-                  {canAddTime && isRunning && (
-                    <div className="flex flex-col items-center gap-2">
-                      <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Add Time</p>
-                      <div className="flex gap-2 flex-wrap justify-center">
-                        {ADD_TIME_OPTIONS.map((opt, i) => (
-                          <button
-                            key={i}
-                            onClick={() => handleAddTime(opt)}
-                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
-                          >
-                            +{opt.focusMin}m
-                          </button>
-                        ))}
-                      </div>
+                    {/* Add time */}
+                    <div className="h-10 mt-1">
+                      {isFocusPhase && isRunning && (
+                        <div className="flex gap-2 justify-center">
+                          {ADD_TIME_OPTIONS.map((opt, i) => (
+                            <button key={i} onClick={() => handleAddTime(opt)} className="px-3 py-1.5 rounded-full text-[11px] font-bold transition-all" style={{ background: "rgba(255,255,255,0.6)", color: "#6b7280", border: "1px solid rgba(0,0,0,0.05)" }}>
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </>
-              )}
+                  </div>
+                )}
+              </div>
 
               {/* Stats strip */}
-              <div className="flex gap-6 text-center">
+              <div className="relative z-10 flex gap-12 text-center mt-1">
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Focused</p>
-                  <p className="text-sm font-semibold text-slate-700">{fmt(focusElapsed)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9ca3af" }}>Focused</p>
+                  <p className="text-base font-bold" style={{ color: "#1a1a1a" }}>{fmt(focusElapsed)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Breaks Skipped</p>
-                  <p className="text-sm font-semibold text-slate-700">{breaksSkipped}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "#9ca3af" }}>Breaks Skipped</p>
+                  <p className="text-base font-bold" style={{ color: "#1a1a1a" }}>{breaksSkipped}</p>
                 </div>
               </div>
             </div>
 
-            {/* Right sidebar: tasks */}
+            {/* ── Task sidebar ──────────────────────────────────────────────── */}
             <div className="w-72 flex-shrink-0">
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Task Checklist</p>
+              <div className="rounded-3xl p-5" style={{ background: "#F7F3EE" }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: "#9ca3af" }}>Task Checklist</p>
                 {tasks.length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-4">No tasks in this session.</p>
+                  <p className="text-sm text-center py-4" style={{ color: "#9ca3af" }}>No tasks in this session.</p>
                 ) : (
-                  <ul className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                  <ul className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
                     {tasks.map((task, i) => (
-                      <li key={task.taskId || task.task_id || i}
-                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
-                          task.status === "Completed" ? "bg-slate-50 border-transparent opacity-60" : "bg-white border-slate-100 hover:border-sanctuary-200"
-                        }`}
+                      <li
+                        key={task.taskId || task.task_id || i}
+                        className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all"
+                        style={task.status === "Completed"
+                          ? { background: "rgba(255,255,255,0.4)", opacity: 0.6 }
+                          : { background: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.95)" }
+                        }
                         onClick={() => handleTaskToggle(task)}
                       >
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center border flex-shrink-0 transition-colors ${
-                          task.status === "Completed" ? "bg-sanctuary-600 border-sanctuary-600 text-white" : "border-slate-300"
-                        }`}>
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                          style={task.status === "Completed"
+                            ? { background: "#064e3b", border: "none", color: "#fff" }
+                            : { border: "1.5px solid #d1d5db" }
+                          }
+                        >
                           {task.status === "Completed" && <CheckCircle2 size={12} />}
                         </div>
-                        <span className={`text-sm ${task.status === "Completed" ? "line-through text-slate-400" : "text-slate-700"}`}>{task.title}</span>
+                        <span className="text-sm font-medium" style={{ color: task.status === "Completed" ? "#9ca3af" : "#374151", textDecoration: task.status === "Completed" ? "line-through" : "none" }}>
+                          {task.title}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -485,7 +475,7 @@ const SessionsPage = () => {
 
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };
