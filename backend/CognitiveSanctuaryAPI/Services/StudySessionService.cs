@@ -142,6 +142,139 @@ public class StudySessionService : InterfaceStudySessionService
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // ANALYTICS AGGREGATION (server-side — replaces frontend crunching)
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Pre-aggregates all dashboard metrics server-side.
+    /// Fetches sessions, burnout records, and tasks from Supabase in parallel,
+    /// then computes totals, averages, weekly buckets, and streak — returning a
+    /// single AnalyticsSummary so the frontend has nothing to calculate.
+    /// </summary>
+    public async Task<AnalyticsSummary> GetAnalyticsAsync(int userId)
+    {
+        // ── Fetch all data in parallel ──────────────────────────────────────
+        var sessionsTask = _httpClient.GetAsync(
+            $"study_sessions?user_id=eq.{userId}&select=*&order=session_id.asc");
+
+        var burnoutTask = _httpClient.GetAsync(
+            $"burnout_records?select=*,study_sessions!inner(user_id)" +
+            $"&study_sessions.user_id=eq.{userId}&order=record_id.asc");
+
+        var tasksTask = _httpClient.GetAsync(
+            $"study_tasks?select=*,study_sessions!inner(user_id)" +
+            $"&study_sessions.user_id=eq.{userId}");
+
+        await Task.WhenAll(sessionsTask, burnoutTask, tasksTask);
+
+        // ── Parse responses ─────────────────────────────────────────────────
+        var sessionRows = new List<StudySessionRow>();
+        if ((await sessionsTask).IsSuccessStatusCode)
+        {
+            sessionRows = await (await sessionsTask)
+                .Content.ReadFromJsonAsync<List<StudySessionRow>>(JsonOptions)
+                ?? new List<StudySessionRow>();
+        }
+
+        var burnoutRows = new List<BurnoutAnalyticsRow>();
+        if ((await burnoutTask).IsSuccessStatusCode)
+        {
+            burnoutRows = await (await burnoutTask)
+                .Content.ReadFromJsonAsync<List<BurnoutAnalyticsRow>>(JsonOptions)
+                ?? new List<BurnoutAnalyticsRow>();
+        }
+
+        var taskRows = new List<StudyTaskRow>();
+        if ((await tasksTask).IsSuccessStatusCode)
+        {
+            taskRows = await (await tasksTask)
+                .Content.ReadFromJsonAsync<List<StudyTaskRow>>(JsonOptions)
+                ?? new List<StudyTaskRow>();
+        }
+
+        // ── Aggregate: sessions ─────────────────────────────────────────────
+        var completed = sessionRows.Where(s =>
+            string.Equals(s.status, "Completed", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        double totalMinutes = completed.Sum(s => s.study_duration ?? 0);
+        double totalStudyHours = Math.Round(totalMinutes / 60.0, 1);
+
+        // ── Aggregate: burnout ───────────────────────────────────────────────
+        double avgBurnout = burnoutRows.Count > 0
+            ? Math.Round(burnoutRows.Average(r => r.burnout_score), 1)
+            : 0;
+
+        double avgMood = burnoutRows.Count > 0
+            ? Math.Round(burnoutRows.Average(r => r.mood), 2)
+            : 2;
+
+        // ── Aggregate: tasks ─────────────────────────────────────────────────
+        int tasksCompleted = taskRows.Count(t =>
+            string.Equals(t.status, "Completed", StringComparison.OrdinalIgnoreCase));
+        int tasksPending = taskRows.Count(t =>
+            !string.Equals(t.status, "Completed", StringComparison.OrdinalIgnoreCase));
+
+        // ── Weekly hours (Mon–Sun of the current week) ────────────────────────
+        var today      = DateTime.UtcNow.Date;
+        int dow        = (int)today.DayOfWeek;           // 0 = Sun
+        var monday     = today.AddDays(-((dow + 6) % 7));
+
+        string[] dayNames = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+        var weeklyHours = dayNames.Select((name, i) =>
+        {
+            var dayStart = monday.AddDays(i);
+            var dayEnd   = dayStart.AddDays(1);
+            double hrs = completed
+                .Where(s => s.start_time.HasValue
+                    && s.start_time.Value.Date >= dayStart
+                    && s.start_time.Value.Date < dayEnd)
+                .Sum(s => (s.study_duration ?? 0) / 60.0);
+            return new DailyHours(name, Math.Round(hrs, 1));
+        }).ToList();
+
+        // ── Streak: consecutive days with ≥1 completed session (ending today) ──
+        var completedDates = completed
+            .Where(s => s.start_time.HasValue)
+            .Select(s => s.start_time!.Value.Date)
+            .Distinct()
+            .OrderByDescending(d => d)
+            .ToList();
+
+        int streak = 0;
+        var cursor = today;
+        foreach (var date in completedDates)
+        {
+            if (date == cursor || date == cursor.AddDays(-1))
+            {
+                streak++;
+                cursor = date;
+            }
+            else break;
+        }
+
+        return new AnalyticsSummary(
+            TotalStudyHours:       totalStudyHours,
+            TotalSessionsCompleted: completed.Count,
+            AverageBurnoutScore:   avgBurnout,
+            AverageMood:           avgMood,
+            StreakDays:            streak,
+            TasksCompleted:        tasksCompleted,
+            TasksPending:          tasksPending,
+            WeeklyHours:           weeklyHours
+        );
+    }
+
+    // ── Private row type for burnout analytics ─────────────────────────────────
+    private sealed class BurnoutAnalyticsRow
+    {
+        [JsonPropertyName("record_id")]    public int    record_id    { get; set; }
+        [JsonPropertyName("burnout_score")] public double burnout_score { get; set; }
+        [JsonPropertyName("burnout_level")] public string burnout_level { get; set; } = string.Empty;
+        [JsonPropertyName("mood")]         public int    mood         { get; set; } = 2;
+        [JsonPropertyName("breaks_skipped")] public int  breaks_skipped { get; set; }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // COMPLETE SESSION (atomic pipeline — the core of the realignment)
     // ═══════════════════════════════════════════════════════════════
 

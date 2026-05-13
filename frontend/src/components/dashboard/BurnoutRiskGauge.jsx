@@ -11,9 +11,18 @@ const BurnoutRiskGauge = ({ burnoutRisk }) => {
 
   return (
     <Card className="w-80 flex flex-col items-center justify-center p-8">
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
-        Burnout Risk Score
-      </p>
+      <div className="flex items-center gap-2 mb-6">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+          Burnout Risk Score
+        </p>
+        <span className="flex items-center gap-1 bg-sanctuary-50 text-sanctuary-700 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-sanctuary-200">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sanctuary-500 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sanctuary-600" />
+          </span>
+          Live
+        </span>
+      </div>
       <div className="relative w-48 h-32">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>

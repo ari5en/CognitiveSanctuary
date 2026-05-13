@@ -83,24 +83,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\HP LAPTOP 15s\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\Claire Nicole Bay\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\HP LAPTOP 15s\\CognitiveSanctuary\\backend\\CognitiveSanctuaryAPI\\CognitiveSanctuaryAPI.csproj",
+      "projectUniqueName": "C:\\Users\\Claire Nicole Bay\\OneDrive\\Desktop\\CognitiveSanctuary\\CognitiveSanctuary\\backend\\CognitiveSanctuaryAPI\\CognitiveSanctuaryAPI.csproj",
       "projectName": "CognitiveSanctuaryAPI",
-      "projectPath": "C:\\Users\\HP LAPTOP 15s\\CognitiveSanctuary\\backend\\CognitiveSanctuaryAPI\\CognitiveSanctuaryAPI.csproj",
-      "packagesPath": "C:\\Users\\HP LAPTOP 15s\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\HP LAPTOP 15s\\CognitiveSanctuary\\backend\\CognitiveSanctuaryAPI\\obj\\",
+      "projectPath": "C:\\Users\\Claire Nicole Bay\\OneDrive\\Desktop\\CognitiveSanctuary\\CognitiveSanctuary\\backend\\CognitiveSanctuaryAPI\\CognitiveSanctuaryAPI.csproj",
+      "packagesPath": "C:\\Users\\Claire Nicole Bay\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Claire Nicole Bay\\OneDrive\\Desktop\\CognitiveSanctuary\\CognitiveSanctuary\\backend\\CognitiveSanctuaryAPI\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\HP LAPTOP 15s\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Users\\Claire Nicole Bay\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -126,7 +121,7 @@
         "auditLevel": "low",
         "auditMode": "all"
       },
-      "SdkAnalysisLevel": "10.0.200"
+      "SdkAnalysisLevel": "10.0.100"
     },
     "frameworks": {
       "net10.0": {
@@ -156,7 +151,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.201/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.AspNetCore": "(,10.0.32767]",
           "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",

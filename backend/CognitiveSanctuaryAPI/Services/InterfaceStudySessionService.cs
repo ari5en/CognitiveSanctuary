@@ -32,6 +32,12 @@ public interface InterfaceStudySessionService
     Task<IReadOnlyList<StudyTask>>   GetTasksByUserAsync(int userId);
     Task<IReadOnlyList<StudyTask>>   GetTasksBySessionAsync(int sessionId);
 
+    /// <summary>
+    /// Returns a fully pre-aggregated analytics snapshot for the dashboard.
+    /// All computation (weekly bucketing, averages, streak) is done server-side.
+    /// </summary>
+    Task<AnalyticsSummary> GetAnalyticsAsync(int userId);
+
     // ── Update ───────────────────────────────────────────────────────────────
 
     /// <summary>

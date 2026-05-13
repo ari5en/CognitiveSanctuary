@@ -145,3 +145,16 @@ export async function saveBurnoutRecord(payload) {
 export async function getLatestBurnoutByUser(userId) {
   return request(`/api/burnout/user/${userId}`);
 }
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+/**
+ * Fetches the fully pre-aggregated dashboard analytics from the backend.
+ * Replaces the three-call (sessions + tasks + burnout) pattern with a single request.
+ * Backend computes: totalStudyHours, weekly buckets, averages, streak, task counts.
+ * @param {number} userId
+ */
+export async function getDashboardAnalytics(userId) {
+  return request(`/api/analytics/user/${userId}`);
+}
+
