@@ -28,28 +28,38 @@ const MODE_STYLES = {
 };
 
 // ── Modal backdrop ────────────────────────────────────────────────────────────
-const Overlay = ({ onClose, children }) => (
-  <AnimatePresence>
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
-    >
+const Overlay = ({ onClose, children }) => {
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
+  return (
+    <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, scale: 0.94, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.94, y: 16 }}
-        transition={{ type: "spring", stiffness: 320, damping: 30 }}
-        onClick={(e) => e.stopPropagation()}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }}
+        onClick={onClose}
       >
-        {children}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94, y: 16 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 16 }}
+          transition={{ type: "spring", stiffness: 320, damping: 30 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
+        </motion.div>
       </motion.div>
-    </motion.div>
-  </AnimatePresence>
-);
+    </AnimatePresence>
+  );
+};
 
 // ── Create Session Modal ──────────────────────────────────────────────────────
 const CreateSessionModal = ({ onClose, onCreate }) => {
@@ -149,12 +159,12 @@ const CreateSessionModal = ({ onClose, onCreate }) => {
 };
 
 // ── Session Details Modal ─────────────────────────────────────────────────────
-const SessionDetailsModal = ({ session, tasks, category, onClose, onStartSession, onAddTask, onTaskToggle }) => {
+const SessionDetailsModal = ({ session, tasks, category, onClose, onStartSession, onAddTask, onTaskToggle, planner }) => {
   const [taskInput, setTaskInput] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const sessionId = session.sessionId || session.session_id;
-  const focusDuration = session.plannedFocusDuration || session.planned_focus_duration || 45;
-  const breakDuration = session.plannedBreakDuration || session.planned_break_duration || 10;
+  const focusDuration = planner?.adaptiveConfig?.focusDuration ?? session.plannedFocusDuration ?? session.planned_focus_duration ?? 45;
+  const breakDuration = planner?.adaptiveConfig?.breakDuration ?? session.plannedBreakDuration ?? session.planned_break_duration ?? 10;
 
   const handleAdd = async () => {
     if (!taskInput.trim()) return;
@@ -265,7 +275,8 @@ const SessionDetailsModal = ({ session, tasks, category, onClose, onStartSession
 
         <button
           onClick={() => { onClose(); onStartSession(sessionId); }}
-          className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+          disabled={tasks.length === 0}
+          className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
           style={{ background: "#064e3b", color: "#fff" }}
         >
           Start Session <ArrowRight size={16} />
@@ -291,9 +302,9 @@ const AdaptiveLoadingOverlay = () => (
 );
 
 // ── Session Card (bento style) ────────────────────────────────────────────────
-const SessionCard = ({ session, tasks, onClick }) => {
+const SessionCard = ({ session, tasks, onClick, planner }) => {
   const sessionId = session.sessionId || session.session_id;
-  const focusDuration = session.plannedFocusDuration || session.planned_focus_duration || 45;
+  const focusDuration = planner?.adaptiveConfig?.focusDuration ?? session.plannedFocusDuration ?? session.planned_focus_duration ?? 45;
   const cat = CATEGORIES.find(c => c.id === session.category) || CATEGORIES[3];
 
   return (
@@ -453,6 +464,7 @@ const SchedulePage = () => {
           onStartSession={sid => navigate(`/sessions?sessionId=${sid}`)}
           onAddTask={handleAddTask}
           onTaskToggle={handleTaskToggle}
+          planner={planner}
         />
       )}
 
@@ -577,6 +589,7 @@ const SchedulePage = () => {
                       session={session}
                       tasks={tasksBySession[sid] || []}
                       onClick={() => setDetailsSession(session)}
+                      planner={planner}
                     />
                   );
                 })}

@@ -33,7 +33,15 @@ const RESULT_LEVELS = [
   { max: 100, codepoint: "😫", color: "#f43f5e", desc: "High burnout risk. Recovery mode activated." },
 ];
 
-const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+const fmt = (s) => {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  if (h > 0) {
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+  return `${String(m).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 const ModalBase = ({ children }) => (
@@ -142,7 +150,7 @@ const ResultScreen = ({ score, level, config, onContinue }) => {
         </div>
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "#9ca3af" }}>Burnout Result</p>
-          <p className="text-5xl font-bold" style={{ color: lvl.color }}>{score}%</p>
+          <p className="text-5xl font-bold" style={{ color: lvl.color }}>{Math.round(score * 100) / 100}%</p>
           <p className="text-lg font-semibold mt-1" style={{ color: lvl.color }}>{level}</p>
         </div>
         <p className="text-sm leading-relaxed" style={{ color: "#6b7280" }}>{lvl.desc}</p>
@@ -150,7 +158,7 @@ const ResultScreen = ({ score, level, config, onContinue }) => {
           <div className="rounded-2xl p-4 text-left space-y-1" style={{ background: "rgba(255,255,255,0.8)" }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "#9ca3af" }}>Next Session (Adapted)</p>
             <p className="text-xs" style={{ color: "#374151" }}>Focus: <strong>{config.focusDuration} min</strong></p>
-            <p className="text-xs" style={{ color: "#374151" }}>Break every: <strong>{config.breakInterval} min</strong></p>
+            {/* <p className="text-xs" style={{ color: "#374151" }}>Break every: <strong>{config.breakInterval} min</strong></p> */}
             <p className="text-xs" style={{ color: "#374151" }}>Break duration: <strong>{config.breakDuration} min</strong></p>
           </div>
         )}

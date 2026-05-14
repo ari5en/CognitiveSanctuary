@@ -1,7 +1,13 @@
 import React from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
-const COLORS = ["#22c55e", "#38bdf8", "#f59e0b", "#064e3b", "#f43f5e"];
+export const COLORS = {
+  programming: "#7c3aed", // violet-600 (matches violet-100/700 UI tone)
+  reading: "#0284c7",     // sky-600 (clean blue, more readable than amber)
+  school: "#f59e0b",      // amber-500 (warm academic feel)
+  "deep-work": "#059669", // emerald-600 (focused productivity green)
+  review: "#f43f5e"       // rose-500 (kept consistent)
+};
 
 const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
@@ -59,8 +65,8 @@ const StudyCategoryChart = ({ categoryData, compact }) => {
               paddingAngle={3}
               dataKey="value"
             >
-              {categoryData.map((_, index) => (
-                <Cell key={index} fill={COLORS[index % COLORS.length]} />
+              {categoryData.map((entry, index) => (
+                <Cell key={index} fill={COLORS[entry.name] || "#d1d5db"} />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />

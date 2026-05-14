@@ -5,6 +5,7 @@ import {
   getDashboardAnalytics,
   getPlannerByUser,
   getLatestBurnoutByUser,
+  getSessionsByUser,
 } from "../services/api";
 
 // Dashboard Components
@@ -31,11 +32,11 @@ function buildTopKpis(analytics, burnoutScore) {
   return [
     { label: "Study Streak", value: analytics?.streakDays ?? "—", sub: "days" },
     { label: "Sessions Completed", value: analytics?.totalSessionsCompleted ?? "—", sub: "" },
-    {
-      label: "Burnout",
-      value: burnoutScore ? `${(Math.round(burnoutScore * 10) / 10).toFixed(1)}%` : "—",
-      sub: "/ 100",
-    },
+    // {
+    //   label: "Burnout",
+    //   value: burnoutScore ? `${(Math.round(burnoutScore * 10) / 10).toFixed(1)}%` : "—",
+    //   sub: "/ 100",
+    // },
   ];
 }
 
@@ -67,7 +68,7 @@ const DashboardPage = () => {
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user") || '{"name":"Alex","id":1}');
     const today = new Date();
-    setGreeting(`Hello, ${storedUser.name}`);
+    setGreeting(`Hello, ${storedUser.name.split(' ')[0]}`);
     setDateSubtitle(
       today.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
     );
@@ -76,10 +77,11 @@ const DashboardPage = () => {
   // ── refreshAll ──────────────────────────────────────────────────────────────
   const refreshAll = useCallback(async (silent = false) => {
     try {
-      const [analytics, burnout, plannerData] = await Promise.all([
+      const [analytics, burnout, plannerData, allSessions] = await Promise.all([
         getDashboardAnalytics(1).catch(() => null),
         getLatestBurnoutByUser(1).catch(() => null),
         getPlannerByUser(1).catch(() => null),
+        getSessionsByUser(1).catch(() => []),
       ]);
 
       // Use rolling average across ALL sessions, not just the latest single one
@@ -98,8 +100,10 @@ const DashboardPage = () => {
 
       const meta = JSON.parse(localStorage.getItem("cs_session_meta") || "{}");
       const cats = {};
-      Object.values(meta).forEach(({ category }) => {
-        if (category) cats[category] = (cats[category] || 0) + 1;
+      allSessions.forEach((s) => {
+        const sid = s.sessionId || s.session_id;
+        const category = meta[sid]?.category || "deep-work";
+        cats[category] = (cats[category] || 0) + 1;
       });
       setCategoryData(Object.entries(cats).map(([name, value]) => ({ name, value })));
 
@@ -135,7 +139,7 @@ const DashboardPage = () => {
 
         {/* Compact quick-action buttons in place of the avatar */}
         <div className="flex gap-2 flex-shrink-0">
-          <motion.button
+          {/* <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate("/schedule")}
@@ -149,7 +153,7 @@ const DashboardPage = () => {
             }}
           >
             Plan Session
-          </motion.button>
+          </motion.button> */}
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
@@ -210,7 +214,7 @@ const DashboardPage = () => {
                 {[
                   { label: "FOCUS",    value: `${planner.adaptiveConfig?.focusDuration ?? planner.plannedFocusDuration ?? 45} min` },
                   { label: "BREAK",    value: `${planner.adaptiveConfig?.breakDuration ?? planner.plannedBreakDuration ?? 10} min` },
-                  { label: "INTERVAL", value: `${planner.adaptiveConfig?.breakInterval ?? planner.breakIntervalMinutes ?? 45} min` },
+                  // { label: "INTERVAL", value: `${planner.adaptiveConfig?.breakInterval ?? planner.breakIntervalMinutes ?? 45} min` },
                   { label: "MODE",     value: planner?.burnoutMode ?? "Normal", isMode: true },
                 ].map((item, i) => (
                   <div
