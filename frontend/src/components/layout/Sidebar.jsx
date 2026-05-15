@@ -8,7 +8,9 @@ import {
   Bell,
   BookOpen,
   Leaf,
+  User,
 } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../services/supabase';
 
@@ -139,6 +141,15 @@ const Sidebar = () => {
             >
               <LogOut size={20} />
             </motion.button>
+
+            {/* Profile Avatar */}
+            <div 
+              className="w-10 h-10 rounded-full flex items-center justify-center bg-[#E8E4DC] text-[#9ca3af] border border-white shadow-sm"
+              title="Profile"
+            >
+              <User size={20} />
+            </div>
+
           </div>
         </div>
       </aside>

@@ -55,11 +55,11 @@ const StudyCategoryChart = ({ categoryData, compact }) => {
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={compact ? 160 : 200}>
-          <PieChart>
+          <PieChart margin={{ top: 10 }}>
             <Pie
               data={categoryData}
               cx="50%"
-              cy="45%"
+              cy="50%"
               outerRadius={compact ? 55 : 70}
               innerRadius={compact ? 30 : 40}
               paddingAngle={3}
@@ -73,6 +73,7 @@ const StudyCategoryChart = ({ categoryData, compact }) => {
             <Legend content={renderLegend} />
           </PieChart>
         </ResponsiveContainer>
+
       )}
     </div>
   );

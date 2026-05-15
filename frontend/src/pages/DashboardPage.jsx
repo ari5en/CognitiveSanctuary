@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import {
-  getDashboardAnalytics,
-  getPlannerByUser,
-  getLatestBurnoutByUser,
-  getSessionsByUser,
-} from "../services/api";
+import { Play } from "lucide-react";
+import { useDataCache } from "../services/DataCacheContext";
+import { supabase } from "../services/supabase";
+
+
 
 // Dashboard Components
 import BurnoutEmojiIndicator from "../components/dashboard/BurnoutEmojiIndicator";
@@ -16,27 +15,16 @@ import StudyCategoryChart from "../components/dashboard/StudyCategoryChart";
 // ── Constants ─────────────────────────────────────────────────────────────────
 const POLL_INTERVAL_MS = 30_000;
 
-const defaultKpis = [
-  { label: "Study Streak", value: "—", sub: "days" },
-  { label: "Sessions Completed", value: "—", sub: "" },
-  { label: "Burnout", value: "—", sub: "/ 100" },
-];
-
 function getBurnoutDesc(score) {
   if (score >= 75) return "High burnout detected. Recovery is recommended.";
   if (score >= 40) return "Moderate fatigue. Keep an eye on break consistency.";
   return "Burnout is stable based on your latest session.";
 }
 
-function buildTopKpis(analytics, burnoutScore) {
+function buildTopKpis(analytics) {
   return [
-    { label: "Study Streak", value: analytics?.streakDays ?? "—", sub: "days" },
+    { label: "Study Streak",       value: analytics?.streakDays ?? "—",             sub: "days" },
     { label: "Sessions Completed", value: analytics?.totalSessionsCompleted ?? "—", sub: "" },
-    // {
-    //   label: "Burnout",
-    //   value: burnoutScore ? `${(Math.round(burnoutScore * 10) / 10).toFixed(1)}%` : "—",
-    //   sub: "/ 100",
-    // },
   ];
 }
 
@@ -47,81 +35,98 @@ const MODE_STYLES = {
   Recovery: { bg: "#ffe4e6", color: "#e11d48", cardGradient: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(254,205,211,0.5) 100%)" },
 };
 
+const defaultKpis = [
+  { label: "Study Streak", value: "—", sub: "days" },
+  { label: "Sessions Completed", value: "—", sub: "" },
+];
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 const DashboardPage = () => {
   const navigate = useNavigate();
   const pollRef = useRef(null);
+  const {
+    read,
+    fetchAnalytics,
+    fetchBurnout,
+    fetchPlanner,
+    fetchSessions,
+    tick,
+  } = useDataCache();
 
-  const [greeting, setGreeting] = useState("Hello");
-  const [dateSubtitle, setDateSubtitle] = useState("");
-  const [kpis, setKpis] = useState(defaultKpis);
-  const [weeklyData, setWeeklyData] = useState([]);
-  const [categoryData, setCategoryData] = useState([]);
-  const [planner, setPlanner] = useState(null);
-  const [error, setError] = useState("");
+  // ── User Name & Date (Loads immediately, then syncs) ───────────────────────
+  const [userName, setUserName] = useState(() => {
+    const stored = JSON.parse(localStorage.getItem("user") || '{"name":"Alex"}');
+    return stored.name || "Alex";
+  });
 
-  const [burnoutScore, setBurnoutScore] = useState(0);
-  const [burnoutDesc, setBurnoutDesc] = useState("No burnout record yet.");
-  const [lastPolled, setLastPolled] = useState(null);
-
-  // ── Greeting ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user") || '{"name":"Alex","id":1}');
-    const today = new Date();
-    setGreeting(`Hello, ${storedUser.name.split(' ')[0]}`);
-    setDateSubtitle(
-      today.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
-    );
-  }, []);
-
-  // ── refreshAll ──────────────────────────────────────────────────────────────
-  const refreshAll = useCallback(async (silent = false) => {
-    try {
-      const [analytics, burnout, plannerData, allSessions] = await Promise.all([
-        getDashboardAnalytics(1).catch(() => null),
-        getLatestBurnoutByUser(1).catch(() => null),
-        getPlannerByUser(1).catch(() => null),
-        getSessionsByUser(1).catch(() => []),
-      ]);
-
-      // Use rolling average across ALL sessions, not just the latest single one
-      const avgScore = analytics?.averageBurnoutScore ?? analytics?.AverageBurnoutScore ?? null;
-      const latestScore = burnout?.score ?? burnout?.Score ?? 0;
-      const score = avgScore !== null ? Math.round(avgScore * 10) / 10 : latestScore;
-
-      setBurnoutScore(score);
-      setBurnoutDesc(getBurnoutDesc(score));
-      setPlanner(plannerData);
-
-      if (analytics) {
-        setWeeklyData(analytics.weeklyHours ?? []);
-        setKpis(buildTopKpis(analytics, score));
+    const syncUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const name = user.user_metadata?.full_name || user.email.split("@")[0];
+        setUserName(name);
+        localStorage.setItem("user", JSON.stringify({ ...user, name }));
       }
-
-      const meta = JSON.parse(localStorage.getItem("cs_session_meta") || "{}");
-      const cats = {};
-      allSessions.forEach((s) => {
-        const sid = s.sessionId || s.session_id;
-        const category = meta[sid]?.category || "deep-work";
-        cats[category] = (cats[category] || 0) + 1;
-      });
-      setCategoryData(Object.entries(cats).map(([name, value]) => ({ name, value })));
-
-      setLastPolled(new Date());
-      if (!silent) setError("");
-    } catch {
-      if (!silent) setError("Unable to load dashboard data.");
-    }
+    };
+    syncUser();
   }, []);
 
-  useEffect(() => { refreshAll(false); }, [refreshAll]);
-  useEffect(() => {
-    pollRef.current = setInterval(() => refreshAll(true), POLL_INTERVAL_MS);
-    return () => clearInterval(pollRef.current);
-  }, [refreshAll]);
+  const today = new Date();
+  const rawName = userName.split(" ")[0];
+  const capitalizedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+  const greeting = `Hello, ${capitalizedName}`;
+  const dateSubtitle = today.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
 
-  const mode = planner?.burnoutMode ?? "Normal";
+
+
+
+  // ── Initial + polling fetch (silent revalidation) ────────────────────────────
+  const revalidate = useCallback(() => {
+    fetchAnalytics();
+    fetchBurnout();
+    fetchPlanner();
+    fetchSessions();
+  }, [fetchAnalytics, fetchBurnout, fetchPlanner, fetchSessions]);
+
+  useEffect(() => {
+    revalidate();
+    pollRef.current = setInterval(revalidate, POLL_INTERVAL_MS);
+    return () => clearInterval(pollRef.current);
+  }, [revalidate]);
+
+  // ── Derive display values from cache (re-derives on every cache tick) ────────
+  const analytics   = read("analytics");
+  const burnout     = read("burnout");
+  const planner     = read("planner");
+  const allSessions = read("sessions") || [];
+
+  const avgScore    = analytics?.averageBurnoutScore ?? analytics?.AverageBurnoutScore ?? null;
+  const latestScore = burnout?.score ?? burnout?.Score ?? 0;
+  const burnoutScore = avgScore !== null ? Math.round(avgScore * 10) / 10 : latestScore;
+  const burnoutDesc  = getBurnoutDesc(burnoutScore);
+
+  const kpis       = analytics ? buildTopKpis(analytics) : defaultKpis;
+  const weeklyData = analytics?.weeklyHours ?? [];
+
+  // Category distribution from session metadata
+  const meta = JSON.parse(localStorage.getItem("cs_session_meta") || "{}");
+  const cats = {};
+  allSessions.forEach((s) => {
+    const sid = s.sessionId || s.session_id;
+    const category = meta[sid]?.category || "deep-work";
+    cats[category] = (cats[category] || 0) + 1;
+  });
+  const categoryData = Object.entries(cats).map(([name, value]) => ({ name, value }));
+
+  const mode      = planner?.burnoutMode ?? "Normal";
   const modeStyle = MODE_STYLES[mode] || MODE_STYLES.Normal;
+
+  // tick is read so the component re-renders whenever the cache updates
+  void tick;
 
   return (
     <div className="max-w-[1100px] mx-auto">
@@ -137,38 +142,24 @@ const DashboardPage = () => {
           </p>
         </div>
 
-        {/* Compact quick-action buttons in place of the avatar */}
         <div className="flex gap-2 flex-shrink-0">
-          {/* <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => navigate("/schedule")}
-            className="px-5 py-2.5 rounded-full text-xs font-bold transition-all"
-            style={{ 
-              background: "rgba(255,255,255,0.7)", 
-              backdropFilter: "blur(12px)", 
-              border: "1px solid rgba(255,255,255,0.9)", 
-              boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
-              color: "#064e3b" 
-            }}
-          >
-            Plan Session
-          </motion.button> */}
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate("/schedule")}
-            className="px-5 py-2.5 rounded-full text-xs font-bold transition-all"
-            style={{ 
-              background: "rgba(6,78,59,0.85)", 
-              backdropFilter: "blur(12px)", 
-              border: "1px solid rgba(255,255,255,0.15)", 
+            className="px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2"
+            style={{
+              background: "rgba(6,78,59,0.85)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(255,255,255,0.15)",
               boxShadow: "0 4px 16px rgba(6,78,59,0.25)",
-              color: "#fff" 
+              color: "#fff"
             }}
           >
+            <Play size={14} fill="currentColor" />
             Start Session
           </motion.button>
+
         </div>
       </div>
 
@@ -212,10 +203,9 @@ const DashboardPage = () => {
               <p className="text-sm font-semibold mb-2" style={{ color: "#374151" }}>Today's Plan</p>
               <div className="flex gap-2 flex-wrap">
                 {[
-                  { label: "FOCUS",    value: `${planner.adaptiveConfig?.focusDuration ?? planner.plannedFocusDuration ?? 45} min` },
-                  { label: "BREAK",    value: `${planner.adaptiveConfig?.breakDuration ?? planner.plannedBreakDuration ?? 10} min` },
-                  // { label: "INTERVAL", value: `${planner.adaptiveConfig?.breakInterval ?? planner.breakIntervalMinutes ?? 45} min` },
-                  { label: "MODE",     value: planner?.burnoutMode ?? "Normal", isMode: true },
+                  { label: "FOCUS", value: `${planner.adaptiveConfig?.focusDuration ?? planner.plannedFocusDuration ?? 45} min` },
+                  { label: "BREAK", value: `${planner.adaptiveConfig?.breakDuration ?? planner.plannedBreakDuration ?? 10} min` },
+                  { label: "MODE",  value: planner?.burnoutMode ?? "Normal", isMode: true },
                 ].map((item, i) => (
                   <div
                     key={i}
@@ -256,14 +246,14 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* ── Burnout light glassmorphic card (col 3, row 1) ─────────────────────────────── */}
+        {/* ── Burnout light glassmorphic card (col 3, row 1) ─────────────────── */}
         <div
           className="col-span-1 rounded-3xl p-6 flex flex-col items-center justify-center relative overflow-hidden border-0"
-          style={{ 
+          style={{
             background: modeStyle.cardGradient,
             backdropFilter: "blur(12px)",
             boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
-            minHeight: 160 
+            minHeight: 160
           }}
         >
           <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "#6b7280" }}>

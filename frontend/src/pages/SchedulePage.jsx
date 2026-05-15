@@ -1,15 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, ArrowRight, X, Clock, CheckCircle2, Loader2, BookOpen, SkipForward } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  addTaskToSession,
-  generateSession,
-  getPlannerByUser,
-  getSessionsByUser,
-  getTasksBySession,
-  updateTask,
-} from "../services/api";
+import { useDataCache } from "../services/DataCacheContext";
+import { addTaskToSession, generateSession, getTasksBySession, updateTask } from "../services/api";
 
 // ── Category config ───────────────────────────────────────────────────────────
 export const CATEGORIES = [
@@ -350,58 +344,69 @@ const SessionCard = ({ session, tasks, onClick, planner }) => {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const SchedulePage = () => {
   const navigate = useNavigate();
-  const [planner, setPlanner] = useState(null);
-  const [sessions, setSessions] = useState([]);
-  const [tasksBySession, setTasksBySession] = useState({});
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAdapting, setIsAdapting] = useState(false);
+  const {
+    read,
+    fetchPlannerPageData,
+    fetchTasksForSession,
+    invalidate,
+    tick,
+  } = useDataCache();
+
+  const [error, setError]               = useState("");
+  const [isAdapting, setIsAdapting]     = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [detailsSession, setDetailsSession] = useState(null);
+  const [detailsSession, setDetailsSession]  = useState(null);
 
-  const plannedSessions = useMemo(() => sessions.filter(s => s.status === "Planned"), [sessions]);
+  // ── Read from cache immediately (no spinner on revisit) ──────────────────────
+  const planner     = read("planner");
+  const sessions    = read("sessions") || [];
 
-  const mode = planner?.burnoutMode ?? "Normal";
+  // Merge tasks from cache
+  const tasksBySession = useMemo(() => {
+    const result = {};
+    sessions
+      .filter((s) => s.status === "Planned")
+      .forEach((s) => {
+        const sid = s.sessionId || s.session_id;
+        result[sid] = read(`tasks_${sid}`) || [];
+      });
+    return result;
+  }, [sessions, read, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const plannedSessions = useMemo(() => sessions.filter((s) => s.status === "Planned"), [sessions]);
+
+  const mode      = planner?.burnoutMode ?? "Normal";
   const modeStyle = MODE_STYLES[mode] || MODE_STYLES.Normal;
 
-  const loadPlannerData = async (showAdapting = false) => {
-    if (showAdapting) setIsAdapting(true);
-    setIsLoading(true);
-    try {
-      const [plannerData, sessionData] = await Promise.all([
-        getPlannerByUser(1).catch(() => null),
-        getSessionsByUser(1),
-      ]);
-      setPlanner(plannerData);
-      const all = sessionData || [];
-      setSessions(all);
-      const planned = all.filter(s => s.status === "Planned");
-      const pairs = await Promise.all(
-        planned.map(async s => {
-          const sid = s.sessionId || s.session_id;
-          const t = await getTasksBySession(sid).catch(() => []);
-          return [sid, t];
-        }),
-      );
-      setTasksBySession(Object.fromEntries(pairs));
-      setError("");
-    } catch {
-      setError("Unable to load planner sessions.");
-    } finally {
-      setIsLoading(false);
-      if (showAdapting) setTimeout(() => setIsAdapting(false), 1200);
-    }
-  };
+  // ── Background revalidation ──────────────────────────────────────────────────
+  const revalidate = useCallback(
+    async (showAdapting = false) => {
+      if (showAdapting) setIsAdapting(true);
+      try {
+        await fetchPlannerPageData({ force: true });
+        setError("");
+      } catch {
+        setError("Unable to load planner sessions.");
+      } finally {
+        if (showAdapting) setTimeout(() => setIsAdapting(false), 1200);
+      }
+    },
+    [fetchPlannerPageData]
+  );
 
   useEffect(() => {
     const adapting = sessionStorage.getItem("cs_adapting");
     if (adapting) {
       sessionStorage.removeItem("cs_adapting");
-      loadPlannerData(true);
+      revalidate(true);
     } else {
-      loadPlannerData(false);
+      // Silently revalidate in background; cached data renders immediately
+      fetchPlannerPageData();
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // suppress lint — tick re-renders when cache updates
+  void tick;
 
   const handleCreateSession = async ({ name, description, category }) => {
     try {
@@ -410,7 +415,9 @@ const SchedulePage = () => {
       const meta = JSON.parse(localStorage.getItem("cs_session_meta") || "{}");
       meta[sid] = { name, description, category };
       localStorage.setItem("cs_session_meta", JSON.stringify(meta));
-      await loadPlannerData();
+      // Invalidate sessions + tasks so next read is fresh
+      invalidate("sessions");
+      await revalidate();
     } catch {
       setError("Failed to generate session.");
     }
@@ -424,8 +431,7 @@ const SchedulePage = () => {
 
   const handleAddTask = async (sessionId, title) => {
     await addTaskToSession(sessionId, { title, estimatedTime: 30, status: "Pending" });
-    const tasks = await getTasksBySession(sessionId).catch(() => []);
-    setTasksBySession(prev => ({ ...prev, [sessionId]: tasks }));
+    await fetchTasksForSession(sessionId, { force: true });
   };
 
   const handleTaskToggle = async (task) => {
@@ -437,8 +443,7 @@ const SchedulePage = () => {
     });
     if (detailsSession) {
       const sid = detailsSession.sessionId || detailsSession.session_id;
-      const tasks = await getTasksBySession(sid).catch(() => []);
-      setTasksBySession(prev => ({ ...prev, [sid]: tasks }));
+      await fetchTasksForSession(sid, { force: true });
     }
   };
 
@@ -564,11 +569,7 @@ const SchedulePage = () => {
 
           {/* ── Session board — full width ────────────────────────────────────── */}
           <div className="col-span-3">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-20 gap-3" style={{ color: "#9ca3af" }}>
-                <Loader2 size={20} className="animate-spin" /> Loading sessions…
-              </div>
-            ) : enriched.length === 0 ? (
+            {enriched.length === 0 ? (
               <div
                 className="rounded-3xl p-12 flex flex-col items-center justify-center text-center"
                 style={{ background: "#F7F3EE" }}
