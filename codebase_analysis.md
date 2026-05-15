@@ -214,14 +214,4 @@ Level thresholds:
 
 ---
 
-## 10. Known Issues / Gaps
 
-| # | Issue | Details |
-|---|---|---|
-| 1 | **Auth hardcoded** | `userId: 1` is hardcoded everywhere. LoginPage writes to localStorage but no JWT or session token is used. |
-| 2 | **Burnout score bypasses backend logic** | Frontend sends a pre-mapped score. `BurnoutCalculator.calculateScore()` is never called in the actual flow. |
-| 3 | **`study_tasks` task duplication risk** | Adding tasks via Planner and also linking them in Sessions creates duplicate task rows (different session IDs). |
-| 4 | **BurnoutPrediction sidebar is static** | The right-sidebar `BurnoutPrediction` component on the Sessions page shows hardcoded mock data, not live data. |
-| 5 | **No user registration/auth** | LoginPage exists but there is no backend auth. Users are implicitly user_id=1. |
-| 6 | **`study_planner` table not used for tasks** | Tasks are always stored in `study_tasks` linked to a session, not directly to a planner. The planner only stores `recommended_load`. |
-| 7 | **`BreakSession` / `FocusSession` unused at runtime** | These OOP classes exist in Models but are never instantiated in any controller or service. |

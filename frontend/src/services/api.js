@@ -24,6 +24,23 @@ async function request(path, options = {}) {
   }
 }
 
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+export function getUserId() {
+  const userStr = localStorage.getItem("user");
+  if (!userStr) return 1;
+  const user = JSON.parse(userStr);
+  if (!user || !user.id) return 1;
+  
+  // Deterministic hash of UUID string into a positive integer
+  let hash = 0;
+  for (let i = 0; i < user.id.length; i++) {
+    hash = ((hash << 5) - hash) + user.id.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) || 1;
+}
+
 // ─── Sessions ────────────────────────────────────────────────────────────────
 
 export async function getSessionsByUser(userId) {
@@ -89,7 +106,7 @@ export async function generateSession(userId) {
 }
 
 export async function savePlanner(payload) {
-  return request("/api/planner/user/1", {
+  return request(`/api/planner/user/${getUserId()}`, {
     method: "POST",
     body: JSON.stringify({
       RecommendedLoad: payload.RecommendedLoad || payload.recommendedLoad,
@@ -106,7 +123,7 @@ export async function getTasksByUser(userId) {
 }
 
 export async function addTask(taskData) {
-  return request(`/api/planner/user/1/tasks`, {
+  return request(`/api/planner/user/${getUserId()}/tasks`, {
     method: "POST",
     body: JSON.stringify({
       Title: taskData.Title || taskData.title,

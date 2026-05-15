@@ -5,7 +5,7 @@ import {
   AlertCircle, Loader2, SkipForward, Timer,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { completeSession, getSessionsByUser, getTasksBySession, updateTask } from "../services/api";
+import { completeSession, getSessionsByUser, getTasksBySession, updateTask, getPlannerByUser, getUserId } from "../services/api";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const Phase = { Idle: "IDLE", Focus: "FOCUS", BreakPrompt: "BREAK_PROMPT", Break: "BREAK", Evaluation: "EVALUATION", Result: "RESULT" };
@@ -230,10 +230,19 @@ const SessionsPage = () => {
   useEffect(() => {
     (async () => {
       try {
-        const sessions = await getSessionsByUser(1);
+        const uid = getUserId();
+        const sessions = await getSessionsByUser(uid);
         let target = sessionIdFromUrl ? sessions.find(s => (s.sessionId || s.session_id) === sessionIdFromUrl) : null;
         if (!target) target = sessions.find(s => s.status === "Planned") || sessions[0];
         if (!target) { setLoadError("No planned sessions. Generate one on the Schedule page."); return; }
+        
+        // Fetch adaptive planner to override the DB baseline timings
+        const plannerData = await getPlannerByUser(uid).catch(() => null);
+        if (plannerData && target.status === "Planned") {
+           target.plannedFocusDuration = plannerData.plannedFocusDuration ?? plannerData.planned_focus_duration ?? target.plannedFocusDuration;
+           target.plannedBreakDuration = plannerData.plannedBreakDuration ?? plannerData.planned_break_duration ?? target.plannedBreakDuration;
+        }
+
         setSession(target);
         setPhase(Phase.Idle);
         const t = await getTasksBySession(target.sessionId || target.session_id).catch(() => []);

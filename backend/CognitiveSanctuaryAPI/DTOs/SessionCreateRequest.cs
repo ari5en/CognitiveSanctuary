@@ -6,7 +6,7 @@ namespace CognitiveSanctuaryAPI.DTOs;
 /// </summary>
 public sealed class SessionCreateRequest
 {
-    public int    UserId               { get; set; }
+    public int userId               { get; set; }
     public int    BreakCount           { get; set; } = 0;
     public double PlannedFocusDuration { get; set; } = 45;  // minutes per focus block
     public int    BreakIntervalMinutes { get; set; } = 45;  // trigger break every N mins

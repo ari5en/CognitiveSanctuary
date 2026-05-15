@@ -9,6 +9,7 @@ import {
   getSessionsByUser,
   getTasksBySession,
   updateTask,
+  getUserId,
 } from "../services/api";
 
 // ── Category config ───────────────────────────────────────────────────────────
@@ -368,9 +369,10 @@ const SchedulePage = () => {
     if (showAdapting) setIsAdapting(true);
     setIsLoading(true);
     try {
+      const uid = getUserId();
       const [plannerData, sessionData] = await Promise.all([
-        getPlannerByUser(1).catch(() => null),
-        getSessionsByUser(1),
+        getPlannerByUser(uid).catch(() => null),
+        getSessionsByUser(uid),
       ]);
       setPlanner(plannerData);
       const all = sessionData || [];
@@ -405,7 +407,7 @@ const SchedulePage = () => {
 
   const handleCreateSession = async ({ name, description, category }) => {
     try {
-      const session = await generateSession(1);
+      const session = await generateSession(getUserId());
       const sid = session.sessionId || session.session_id;
       const meta = JSON.parse(localStorage.getItem("cs_session_meta") || "{}");
       meta[sid] = { name, description, category };

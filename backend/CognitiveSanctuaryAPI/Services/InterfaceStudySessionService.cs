@@ -78,4 +78,4 @@ public record SessionCompleteResult(
 /// <summary>
 /// Session with its owning user id. Used for planner updates after burnout scoring.
 /// </summary>
-public record SessionWithUserId(StudySession Session, int UserId);
+public record SessionWithUserId(StudySession Session, int userId);

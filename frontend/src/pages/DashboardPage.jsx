@@ -6,6 +6,7 @@ import {
   getPlannerByUser,
   getLatestBurnoutByUser,
   getSessionsByUser,
+  getUserId,
 } from "../services/api";
 
 // Dashboard Components
@@ -77,11 +78,12 @@ const DashboardPage = () => {
   // ── refreshAll ──────────────────────────────────────────────────────────────
   const refreshAll = useCallback(async (silent = false) => {
     try {
+      const uid = getUserId();
       const [analytics, burnout, plannerData, allSessions] = await Promise.all([
-        getDashboardAnalytics(1).catch(() => null),
-        getLatestBurnoutByUser(1).catch(() => null),
-        getPlannerByUser(1).catch(() => null),
-        getSessionsByUser(1).catch(() => []),
+        getDashboardAnalytics(uid).catch(() => null),
+        getLatestBurnoutByUser(uid).catch(() => null),
+        getPlannerByUser(uid).catch(() => null),
+        getSessionsByUser(uid).catch(() => []),
       ]);
 
       // Use rolling average across ALL sessions, not just the latest single one
