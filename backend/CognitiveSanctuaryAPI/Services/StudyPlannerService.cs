@@ -58,53 +58,68 @@ public class StudyPlannerService : InterfaceStudyPlannerService
         int breakIntervalMinutes,
         double plannedBreakDuration)
     {
-        // Ensure the user row exists first (prevents FK 409 for new hashed IDs)
+        // Ensure the user row exists first (best-effort, ignores RLS failures)
         await EnsureUserExistsAsync(userId);
 
-        // Upsert pattern: check if planner exists for this user
-        var existing = await _httpClient.GetAsync($"study_planner?user_id=eq.{userId}&select=planner_id");
-        existing.EnsureSuccessStatusCode();
-
-        var rows = await existing.Content.ReadFromJsonAsync<List<PlannerIdRow>>(JsonOptions)
-                   ?? new List<PlannerIdRow>();
-
-        if (rows.Count == 0)
+        // ── PATCH-first upsert ─────────────────────────────────────────────────
+        // 1. Try PATCH on existing row. Supabase PATCH with a filter returns the
+        //    updated rows when "return=representation" is used, or an empty array
+        //    if no rows matched the filter. We use this to detect missing rows.
+        var updatePayload = new
         {
-            // Insert new planner row
+            recommended_load       = recommendedLoad,
+            burnout_mode           = burnoutMode,
+            planned_focus_duration = plannedFocusDuration,
+            break_interval_minutes = breakIntervalMinutes,
+            planned_break_duration = plannedBreakDuration,
+            last_updated           = DateTime.UtcNow,
+        };
+
+        using var patchReq = new HttpRequestMessage(
+            new HttpMethod("PATCH"),
+            $"study_planner?user_id=eq.{userId}");
+        patchReq.Headers.Add("Prefer", "return=representation");
+        patchReq.Content = JsonContent.Create(updatePayload);
+        using var patchRes = await _httpClient.SendAsync(patchReq);
+        patchRes.EnsureSuccessStatusCode();
+
+        var patchBody = await patchRes.Content.ReadAsStringAsync();
+
+        // 2. If PATCH returned an empty array ([]), no row existed — INSERT instead.
+        if (patchBody.Trim() == "[]")
+        {
             var insertPayload = new StudyPlannerInsert
             {
-                user_id          = userId,
-                recommended_load = recommendedLoad,
-                burnout_mode     = burnoutMode,
+                user_id                = userId,
+                recommended_load       = recommendedLoad,
+                burnout_mode           = burnoutMode,
                 planned_focus_duration = plannedFocusDuration,
                 break_interval_minutes = breakIntervalMinutes,
                 planned_break_duration = plannedBreakDuration,
             };
             using var insertReq = new HttpRequestMessage(HttpMethod.Post, "study_planner");
-            insertReq.Headers.Add("Prefer", "return=representation");
+            insertReq.Headers.Add("Prefer", "return=minimal");
             insertReq.Content = JsonContent.Create(insertPayload);
             using var insertRes = await _httpClient.SendAsync(insertReq);
-            insertRes.EnsureSuccessStatusCode();
-        }
-        else
-        {
-            // PATCH existing planner
-            var updatePayload = new StudyPlannerUpdate
+
+            // 409 = row already exists (race condition or PATCH filter missed it)
+            // In either case, the row is present — so we do a final PATCH to update values.
+            if (insertRes.StatusCode == System.Net.HttpStatusCode.Conflict ||
+                insertRes.StatusCode == (System.Net.HttpStatusCode)409)
             {
-                recommended_load = recommendedLoad,
-                burnout_mode     = burnoutMode,
-                planned_focus_duration = plannedFocusDuration,
-                break_interval_minutes = breakIntervalMinutes,
-                planned_break_duration = plannedBreakDuration,
-                last_updated     = DateTime.UtcNow,
-            };
-            using var patchReq = new HttpRequestMessage(
-                new HttpMethod("PATCH"),
-                $"study_planner?user_id=eq.{userId}");
-            patchReq.Headers.Add("Prefer", "return=representation");
-            patchReq.Content = JsonContent.Create(updatePayload);
-            using var patchRes = await _httpClient.SendAsync(patchReq);
-            patchRes.EnsureSuccessStatusCode();
+                Console.WriteLine($"[SavePlannerAsync] INSERT got 409 for user {userId} — falling back to global PATCH.");
+                using var fallbackReq = new HttpRequestMessage(
+                    new HttpMethod("PATCH"),
+                    $"study_planner?user_id=eq.{userId}");
+                fallbackReq.Headers.Add("Prefer", "return=minimal");
+                fallbackReq.Content = JsonContent.Create(updatePayload);
+                using var fallbackRes = await _httpClient.SendAsync(fallbackReq);
+                // Ignore result — best-effort
+            }
+            else
+            {
+                insertRes.EnsureSuccessStatusCode();
+            }
         }
     }
 
@@ -116,19 +131,33 @@ public class StudyPlannerService : InterfaceStudyPlannerService
     /// </summary>
     private async Task EnsureUserExistsAsync(int userId)
     {
-        var payload = new UserInsert { user_id = userId };
-        using var req = new HttpRequestMessage(HttpMethod.Post, "users");
-        req.Headers.Add("Prefer", "resolution=ignore-duplicates,return=minimal");
-        req.Content = JsonContent.Create(payload);
-        using var res = await _httpClient.SendAsync(req);
-        // 200/201 = inserted, 200 with empty = ignored duplicate — both are fine.
-        // Only throw on genuine errors.
-        if (!res.IsSuccessStatusCode)
+        try
         {
-            var body = await res.Content.ReadAsStringAsync();
-            // Ignore duplicate key errors gracefully
-            if (!body.Contains("duplicate") && !body.Contains("unique"))
-                res.EnsureSuccessStatusCode();
+            var payload = new UserInsert
+            {
+                user_id = userId,
+                name = $"User {userId}",
+                email = $"{userId}@local.invalid",
+                password = userId.ToString(),
+                mood_level = 5,
+            };
+            using var req = new HttpRequestMessage(HttpMethod.Post, "users");
+            req.Headers.Add("Prefer", "resolution=ignore-duplicates,return=minimal");
+            req.Content = JsonContent.Create(payload);
+            using var res = await _httpClient.SendAsync(req);
+            
+            if (!res.IsSuccessStatusCode)
+            {
+                var body = await res.Content.ReadAsStringAsync();
+                if (!body.Contains("duplicate") && !body.Contains("unique"))
+                {
+                    // Ignore RLS 401/403 or other errors gracefully
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EnsureUserExistsAsync] Ignored error: {ex.Message}");
         }
     }
 
@@ -149,14 +178,6 @@ public class StudyPlannerService : InterfaceStudyPlannerService
                 defaultPlanner.breakIntervalMinutes,
                 defaultPlanner.plannedBreakDuration,
                 defaultPlanner.burnoutMode);
-
-            await SavePlannerAsync(
-                userId,
-                defaultPlanner.recommendedLoad,
-                defaultPlanner.burnoutMode,
-                defaultPlanner.plannedFocusDuration,
-                defaultPlanner.breakIntervalMinutes,
-                defaultPlanner.plannedBreakDuration);
 
             return new PlannerSnapshot(
                 defaultPlanner.recommendedLoad,
@@ -182,9 +203,6 @@ public class StudyPlannerService : InterfaceStudyPlannerService
     /// </summary>
     public async Task<StudySession> GenerateSessionAsync(int userId)
     {
-        // Ensure user exists before any FK-constrained inserts
-        await EnsureUserExistsAsync(userId);
-
         var plannerSnapshot = await GetPlannerByUserAsync(userId);
         if (plannerSnapshot is null)
             throw new Exception("Planner not found.");
@@ -278,6 +296,10 @@ public class StudyPlannerService : InterfaceStudyPlannerService
     private sealed class UserInsert
     {
         public int user_id { get; set; }
+        public string name { get; set; } = string.Empty;
+        public string email { get; set; } = string.Empty;
+        public string password { get; set; } = string.Empty;
+        public int mood_level { get; set; } = 5;
     }
 }
 

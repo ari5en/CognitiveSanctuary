@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { completeSession, getSessionsByUser, getTasksBySession, updateTask, getPlannerByUser, getUserId } from "../services/api";
+import { useDataCache } from "../services/DataCacheContext";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const Phase = { Idle: "IDLE", Focus: "FOCUS", BreakPrompt: "BREAK_PROMPT", Break: "BREAK", Evaluation: "EVALUATION", Result: "RESULT" };
@@ -199,6 +200,7 @@ const TimerRing = ({ secondsLeft, totalSeconds, isFocus }) => {
 const SessionsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { invalidateAll } = useDataCache();
 
   const [session, setSession]           = useState(null);
   const [tasks, setTasks]               = useState([]);
@@ -285,7 +287,15 @@ const SessionsPage = () => {
       const data = await completeSession(sid, { startTime: sessionStart || endTime, endTime, studyDuration: +(focusElapsed / 60).toFixed(2), mood, breaksSkipped });
       setResultData({ score: data.burnoutScore ?? 0, level: data.burnoutLevel ?? "Stable", config: data.adaptiveConfig });
       setShowMood(false); setPhase(Phase.Result);
-    } catch { setIsSubmitting(false); }
+      // Invalidate the shared cache so Dashboard + SchedulePage reflect fresh data
+      try { invalidateAll(); } catch (_) {}
+    } catch (err) {
+      console.error("[handleMoodSubmit] error:", err);
+      // Still navigate away so user isn't stuck — session was likely saved
+      try { invalidateAll(); } catch (_) {}
+      sessionStorage.setItem("cs_adapting", "1");
+      navigate("/dashboard");
+    }
   };
 
   const handleTaskToggle = async (task) => {

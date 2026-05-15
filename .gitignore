@@ -102,5 +102,5 @@ Thumbs.db
 backend/CognitiveSanctuaryAPI/obj/Debug/net10.0/CognitiveSanctuaryAPI.AssemblyInfoInputs.cache
 backend/CognitiveSanctuaryAPI/obj/Debug/net10.0/CognitiveSanctuaryAPI.AssemblyInfo.cs
 
-
-
+backend-integration.md
+codebase_analysis.md

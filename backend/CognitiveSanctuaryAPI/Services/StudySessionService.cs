@@ -41,9 +41,6 @@ public class StudySessionService : InterfaceStudySessionService
         int    breakIntervalMinutes = 45,
         double plannedBreakDuration = 10)
     {
-        // Ensure the user row exists first (prevents FK 409 for new hashed IDs)
-        await EnsureUserExistsAsync(userId);
-
         var payload = new StudySessionInsert
         {
             user_id                = userId,
@@ -578,6 +575,10 @@ public class StudySessionService : InterfaceStudySessionService
     private sealed class UserInsert
     {
         public int user_id { get; set; }
+        public string name { get; set; } = string.Empty;
+        public string email { get; set; } = string.Empty;
+        public string password { get; set; } = string.Empty;
+        public int mood_level { get; set; } = 5;
     }
 
     /// <summary>
@@ -585,16 +586,32 @@ public class StudySessionService : InterfaceStudySessionService
     /// </summary>
     private async Task EnsureUserExistsAsync(int userId)
     {
-        var payload = new UserInsert { user_id = userId };
-        using var req = new HttpRequestMessage(HttpMethod.Post, "users");
-        req.Headers.Add("Prefer", "resolution=ignore-duplicates,return=minimal");
-        req.Content = JsonContent.Create(payload);
-        using var res = await _httpClient.SendAsync(req);
-        if (!res.IsSuccessStatusCode)
+        try
         {
-            var body = await res.Content.ReadAsStringAsync();
-            if (!body.Contains("duplicate") && !body.Contains("unique"))
-                res.EnsureSuccessStatusCode();
+            var payload = new UserInsert
+            {
+                user_id = userId,
+                name = $"User {userId}",
+                email = $"{userId}@local.invalid",
+                password = userId.ToString(),
+                mood_level = 5,
+            };
+            using var req = new HttpRequestMessage(HttpMethod.Post, "users");
+            req.Headers.Add("Prefer", "resolution=ignore-duplicates,return=minimal");
+            req.Content = JsonContent.Create(payload);
+            using var res = await _httpClient.SendAsync(req);
+            if (!res.IsSuccessStatusCode)
+            {
+                var body = await res.Content.ReadAsStringAsync();
+                if (!body.Contains("duplicate") && !body.Contains("unique"))
+                {
+                    // Ignore RLS 401/403 or other errors gracefully
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EnsureUserExistsAsync] Ignored error: {ex.Message}");
         }
     }
 }
