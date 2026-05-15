@@ -22,9 +22,9 @@ public class BurnoutService : InterfaceBurnoutService
     /// Formula: durationFactor + breakPenalty + moodPenalty (capped at 100).
     /// This is called on the BACKEND — the frontend never sends a pre-computed score.
     /// </summary>
-    public double CalculateScore(StudySession session, int mood)
+    public double CalculateScore(double previousScore, StudySession session, int mood)
     {
-        return _calculator.calculateScore(session, mood);
+        return _calculator.calculateScore(previousScore, session, mood);
     }
 
     public string GetStudyState(double score)

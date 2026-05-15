@@ -199,9 +199,9 @@ public class StudySessionService : InterfaceStudySessionService
         double totalMinutes = completed.Sum(s => s.study_duration ?? 0);
         double totalStudyHours = Math.Round(totalMinutes / 60.0, 1);
 
-        // ── Aggregate: burnout ───────────────────────────────────────────────
+        // ── Aggregate: burnout (Current Burnout Level) ──────────────────────
         double avgBurnout = burnoutRows.Count > 0
-            ? Math.Round(burnoutRows.Average(r => r.burnout_score), 1)
+            ? Math.Round(burnoutRows.Last().burnout_score, 1)
             : 0;
 
         double avgMood = burnoutRows.Count > 0
@@ -304,6 +304,9 @@ public class StudySessionService : InterfaceStudySessionService
         await PersistCompletionAsync(sessionId, updatePayload);
 
         // ── Step 3: Compute burnout (explicit) ───────────────────────────────
+        int userId = await GetUserIdForSessionAsync(sessionId);
+        var latestRecord = await _burnoutService.GetLatestRecordByUserAsync(userId);
+        
         var session = new StudySession(sessionId, 0)
         {
             studyDuration  = studyDuration,
@@ -311,7 +314,7 @@ public class StudySessionService : InterfaceStudySessionService
             breaksSkipped  = breaksSkipped,
             status         = StudySession.StatusCompleted,
         };
-        var (burnoutScore, burnoutLevel) = EvaluateBurnoutForSession(session, mood, breaksSkipped);
+        var (burnoutScore, burnoutLevel) = EvaluateBurnoutForSession(latestRecord.Score, session, mood, breaksSkipped);
 
         // ── Step 4: Save burnout record ──────────────────────────────────────
         await _burnoutService.SaveBurnoutRecordAsync(
@@ -433,6 +436,7 @@ public class StudySessionService : InterfaceStudySessionService
     }
 
     private (double score, string level) EvaluateBurnoutForSession(
+        double previousScore,
         StudySession session,
         int mood,
         int breaksSkipped)
@@ -446,7 +450,7 @@ public class StudySessionService : InterfaceStudySessionService
             session.studyDuration,
             breaksSkipped);
 
-        var score = _burnoutService.CalculateScore(sessionForScoring, mood);
+        var score = _burnoutService.CalculateScore(previousScore, sessionForScoring, mood);
         var level = _burnoutService.GetStudyState(score);
         return (score, level);
     }

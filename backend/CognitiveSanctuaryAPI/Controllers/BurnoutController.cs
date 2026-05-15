@@ -49,7 +49,8 @@ public sealed class BurnoutController : ControllerBase
             return NotFound($"Session {request.SessionId} not found.");
 
         var scoringSession = BuildSessionForScoring(sessionWithUser.Session, request.BreaksSkipped);
-        double burnoutScore = _burnoutService.CalculateScore(scoringSession, request.Mood);
+        var latestRecord = await _burnoutService.GetLatestRecordByUserAsync(sessionWithUser.UserId);
+        double burnoutScore = _burnoutService.CalculateScore(latestRecord.Score, scoringSession, request.Mood);
         string burnoutLevel = _burnoutService.GetStudyState(burnoutScore);
 
         await _burnoutService.SaveBurnoutRecordAsync(

@@ -11,7 +11,7 @@ public interface InterfaceBurnoutService
     /// Wraps BurnoutCalculator.calculateScore().
     /// Called on the BACKEND — score is never computed on the frontend.
     /// </summary>
-    double CalculateScore(StudySession session, int mood);
+    double CalculateScore(double previousScore, StudySession session, int mood);
 
     string GetStudyState(double score);
     string EvaluateRisk();

@@ -71,50 +71,41 @@ public class StudyPlanner
     /// <returns>AdaptiveSessionConfig: concrete focus/break structure for the next session</returns>
     public AdaptiveSessionConfig adjustSchedule(double score)
     {
-        if (score < 40)
+        if (score <= 25)
         {
-            // LOW burnout — Normal mode: full focus blocks, standard breaks
             _recommendedLoad = 100;
-            _burnoutMode     = "Normal";
+            _burnoutMode     = "Optimal";
             _plannedFocusDuration = 45;
             _breakIntervalMinutes = 45;
             _plannedBreakDuration = 10;
-            return new AdaptiveSessionConfig(
-                FocusDuration: 45,
-                BreakInterval: 45,
-                BreakDuration: 10,
-                Mode:          "Normal"
-            );
+            return new AdaptiveSessionConfig(45, 45, 10, "Optimal");
         }
-        else if (score < 75)
+        else if (score <= 50)
         {
-            // MODERATE burnout — Warning mode: shorter focus, longer/more frequent breaks
-            _recommendedLoad = 60;
-            _burnoutMode     = "Warning";
-            _plannedFocusDuration = 30;
-            _breakIntervalMinutes = 30;
+            _recommendedLoad = 80;
+            _burnoutMode     = "Balanced";
+            _plannedFocusDuration = 40;
+            _breakIntervalMinutes = 40;
             _plannedBreakDuration = 15;
-            return new AdaptiveSessionConfig(
-                FocusDuration: 30,
-                BreakInterval: 30,
-                BreakDuration: 15,
-                Mode:          "Warning"
-            );
+            return new AdaptiveSessionConfig(40, 40, 15, "Balanced");
+        }
+        else if (score <= 75)
+        {
+            _recommendedLoad = 60;
+            _burnoutMode     = "Paced";
+            _plannedFocusDuration = 35;
+            _breakIntervalMinutes = 35;
+            _plannedBreakDuration = 20;
+            return new AdaptiveSessionConfig(35, 35, 20, "Paced");
         }
         else
         {
-            // HIGH burnout — Recovery mode: short focus blocks, equal break time
             _recommendedLoad = 30;
             _burnoutMode     = "Recovery";
-            _plannedFocusDuration = 20;
-            _breakIntervalMinutes = 20;
+            _plannedFocusDuration = 25;
+            _breakIntervalMinutes = 25;
             _plannedBreakDuration = 20;
-            return new AdaptiveSessionConfig(
-                FocusDuration: 20,
-                BreakInterval: 20,
-                BreakDuration: 20,
-                Mode:          "Recovery"
-            );
+            return new AdaptiveSessionConfig(25, 25, 20, "Recovery");
         }
     }
 
