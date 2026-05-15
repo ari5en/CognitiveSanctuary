@@ -23,8 +23,10 @@ const navItems = [
 const Sidebar = () => {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const storedUser = JSON.parse(localStorage.getItem('user') || '{"name":"Alex"}');
+
   const initials = (storedUser.name || 'A').slice(0, 1).toUpperCase();
 
   const handleLogout = async () => {
@@ -144,11 +146,24 @@ const Sidebar = () => {
 
             {/* Profile Avatar */}
             <div 
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-[#E8E4DC] text-[#9ca3af] border border-white shadow-sm"
+              className="w-10 h-10 rounded-full flex items-center justify-center bg-[#E8E4DC] text-[#9ca3af] border border-white shadow-sm overflow-hidden"
               title="Profile"
             >
-              <User size={20} />
+              {storedUser.avatar && !imgError ? (
+                <motion.img 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  src={storedUser.avatar} 
+                  onError={() => setImgError(true)}
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User size={20} />
+              )}
             </div>
+
+
 
           </div>
         </div>

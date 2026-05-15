@@ -64,9 +64,11 @@ const DashboardPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const name = user.user_metadata?.full_name || user.email.split("@")[0];
+        const avatar = user.user_metadata?.avatar_url;
         setUserName(name);
-        localStorage.setItem("user", JSON.stringify({ ...user, name }));
+        localStorage.setItem("user", JSON.stringify({ ...user, name, avatar }));
       }
+
     };
     syncUser();
   }, []);

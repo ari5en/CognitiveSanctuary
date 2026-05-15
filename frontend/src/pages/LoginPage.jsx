@@ -20,7 +20,9 @@ const LoginPage = () => {
           name:
             session.user.user_metadata?.full_name ||
             session.user.email.split("@")[0],
+          avatar: session.user.user_metadata?.avatar_url,
         };
+
 
         localStorage.setItem("user", JSON.stringify(user));
         navigate("/dashboard");
@@ -47,7 +49,9 @@ const LoginPage = () => {
         email: data.user.email,
         name:
           data.user.user_metadata?.full_name || data.user.email.split("@")[0],
+        avatar: data.user.user_metadata?.avatar_url,
       };
+
 
       localStorage.setItem("user", JSON.stringify(user));
       navigate("/dashboard");
