@@ -11,6 +11,7 @@ import {
   updateTask,
   getUserId,
 } from "../services/api";
+import { supabase } from "../services/supabase";
 
 // ── Category config ───────────────────────────────────────────────────────────
 export const CATEGORIES = [
@@ -369,6 +370,20 @@ const SchedulePage = () => {
     if (showAdapting) setIsAdapting(true);
     setIsLoading(true);
     try {
+      // Ensure user is in localStorage (in case they refreshed on /schedule directly after Google Login)
+      let storedUser = JSON.parse(localStorage.getItem("user"));
+      if (!storedUser) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          storedUser = {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata?.full_name || session.user.email.split("@")[0],
+          };
+          localStorage.setItem("user", JSON.stringify(storedUser));
+        }
+      }
+
       const uid = getUserId();
       const [plannerData, sessionData] = await Promise.all([
         getPlannerByUser(uid).catch(() => null),

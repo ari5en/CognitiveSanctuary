@@ -15,7 +15,7 @@ public class User
         _moodLevel = moodLevel;
     }
 
-    public int userId
+    public int UserId
     {
         get { return _userId; }
         private set { _userId = value; }

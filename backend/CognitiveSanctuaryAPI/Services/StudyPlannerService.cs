@@ -58,6 +58,9 @@ public class StudyPlannerService : InterfaceStudyPlannerService
         int breakIntervalMinutes,
         double plannedBreakDuration)
     {
+        // Ensure the user row exists first (prevents FK 409 for new hashed IDs)
+        await EnsureUserExistsAsync(userId);
+
         // Upsert pattern: check if planner exists for this user
         var existing = await _httpClient.GetAsync($"study_planner?user_id=eq.{userId}&select=planner_id");
         existing.EnsureSuccessStatusCode();
@@ -102,6 +105,30 @@ public class StudyPlannerService : InterfaceStudyPlannerService
             patchReq.Content = JsonContent.Create(updatePayload);
             using var patchRes = await _httpClient.SendAsync(patchReq);
             patchRes.EnsureSuccessStatusCode();
+        }
+    }
+
+    /// <summary>
+    /// Ensures a row exists in the `users` table for the given hashed userId.
+    /// Uses Supabase upsert (POST with Prefer: resolution=ignore-duplicates)
+    /// so it's a no-op if the user already exists.
+    /// This prevents FK violations (409 Conflict) when inserting into study_planner or study_sessions.
+    /// </summary>
+    private async Task EnsureUserExistsAsync(int userId)
+    {
+        var payload = new UserInsert { user_id = userId };
+        using var req = new HttpRequestMessage(HttpMethod.Post, "users");
+        req.Headers.Add("Prefer", "resolution=ignore-duplicates,return=minimal");
+        req.Content = JsonContent.Create(payload);
+        using var res = await _httpClient.SendAsync(req);
+        // 200/201 = inserted, 200 with empty = ignored duplicate — both are fine.
+        // Only throw on genuine errors.
+        if (!res.IsSuccessStatusCode)
+        {
+            var body = await res.Content.ReadAsStringAsync();
+            // Ignore duplicate key errors gracefully
+            if (!body.Contains("duplicate") && !body.Contains("unique"))
+                res.EnsureSuccessStatusCode();
         }
     }
 
@@ -155,6 +182,9 @@ public class StudyPlannerService : InterfaceStudyPlannerService
     /// </summary>
     public async Task<StudySession> GenerateSessionAsync(int userId)
     {
+        // Ensure user exists before any FK-constrained inserts
+        await EnsureUserExistsAsync(userId);
+
         var plannerSnapshot = await GetPlannerByUserAsync(userId);
         if (plannerSnapshot is null)
             throw new Exception("Planner not found.");
@@ -243,6 +273,11 @@ public class StudyPlannerService : InterfaceStudyPlannerService
     private sealed class StudyPlannerSessionRow
     {
         [JsonPropertyName("session_id")] public int session_id { get; set; }
+    }
+
+    private sealed class UserInsert
+    {
+        public int user_id { get; set; }
     }
 }
 

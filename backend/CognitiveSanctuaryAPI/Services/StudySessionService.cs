@@ -41,6 +41,9 @@ public class StudySessionService : InterfaceStudySessionService
         int    breakIntervalMinutes = 45,
         double plannedBreakDuration = 10)
     {
+        // Ensure the user row exists first (prevents FK 409 for new hashed IDs)
+        await EnsureUserExistsAsync(userId);
+
         var payload = new StudySessionInsert
         {
             user_id                = userId,
@@ -570,5 +573,28 @@ public class StudySessionService : InterfaceStudySessionService
     private sealed class UserIdRow
     {
         public int user_id { get; set; }
+    }
+
+    private sealed class UserInsert
+    {
+        public int user_id { get; set; }
+    }
+
+    /// <summary>
+    /// Upserts a minimal user row so FK constraints don't block inserts for new hashed IDs.
+    /// </summary>
+    private async Task EnsureUserExistsAsync(int userId)
+    {
+        var payload = new UserInsert { user_id = userId };
+        using var req = new HttpRequestMessage(HttpMethod.Post, "users");
+        req.Headers.Add("Prefer", "resolution=ignore-duplicates,return=minimal");
+        req.Content = JsonContent.Create(payload);
+        using var res = await _httpClient.SendAsync(req);
+        if (!res.IsSuccessStatusCode)
+        {
+            var body = await res.Content.ReadAsStringAsync();
+            if (!body.Contains("duplicate") && !body.Contains("unique"))
+                res.EnsureSuccessStatusCode();
+        }
     }
 }

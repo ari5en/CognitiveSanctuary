@@ -8,6 +8,7 @@ import {
   getSessionsByUser,
   getUserId,
 } from "../services/api";
+import { supabase } from "../services/supabase";
 
 // Dashboard Components
 import BurnoutEmojiIndicator from "../components/dashboard/BurnoutEmojiIndicator";
@@ -67,12 +68,36 @@ const DashboardPage = () => {
 
   // ── Greeting ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user") || '{"name":"Alex","id":1}');
-    const today = new Date();
-    setGreeting(`Hello, ${storedUser.name.split(' ')[0]}`);
-    setDateSubtitle(
-      today.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
-    );
+    const initUser = async () => {
+      let storedUser = JSON.parse(localStorage.getItem("user"));
+      
+      // If no user in localStorage, it means we probably just redirected from Google OAuth.
+      // Fetch the real session from Supabase.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        storedUser = {
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.user_metadata?.full_name || session.user.email.split("@")[0],
+        };
+        localStorage.setItem("user", JSON.stringify(storedUser));
+      } else if (!storedUser) {
+        // Fallback if completely unauthenticated
+        storedUser = { name: "Guest", id: 1 };
+      }
+
+      const rawName = storedUser.name.split(' ')[0];
+      // Capitalize first letter, lowercase the rest (e.g., Jyvhan)
+      const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
+      
+      setGreeting(`Hello, ${formattedName}`);
+      const today = new Date();
+      setDateSubtitle(today.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }));
+      
+      // Now that user is definitely stored, fetch data
+      refreshAll(false);
+    };
+    initUser();
   }, []);
 
   // ── refreshAll ──────────────────────────────────────────────────────────────
@@ -116,7 +141,8 @@ const DashboardPage = () => {
     }
   }, []);
 
-  useEffect(() => { refreshAll(false); }, [refreshAll]);
+  // We removed the initial useEffect(() => { refreshAll(false); }, [refreshAll]);
+  // because it is now called inside the initUser effect once localStorage is guaranteed to be set.
   useEffect(() => {
     pollRef.current = setInterval(() => refreshAll(true), POLL_INTERVAL_MS);
     return () => clearInterval(pollRef.current);
