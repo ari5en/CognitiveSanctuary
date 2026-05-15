@@ -133,8 +133,8 @@ The Cognitive Sanctuary is built on the principle of **Mindful Productivity**. I
 ## 👥 Credits
 
 Developed by Cognitive Sanctuary Team:
-Claire Nicole Bay
-Jyvhan Earl Ponce
-Richard Crue Torres
+- Claire Nicole Bay
+- Jyvhan Earl Ponce
+- Richard Crue Torres
 
 Inspired by mindful productivity research and cognitive load theory.
