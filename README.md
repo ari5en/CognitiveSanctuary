@@ -1,4 +1,17 @@
-# The Cognitive Sanctuary 🌿
+<p align="center">
+  <img src="./frontend/public/logo.jpg" width="200" />
+</p>
+
+<h1 align="center">Cognitive Sanctuary</h1>
+
+<p align="center">
+
+<img src="https://img.shields.io/badge/React-19-blue" />
+<img src="https://img.shields.io/badge/Vite-Frontend-purple" />
+<img src="https://img.shields.io/badge/ASP.NET-Core-green" />
+<img src="https://img.shields.io/badge/Supabase-Backend-brightgreen" />
+
+</p>
 
 **The Cognitive Sanctuary** is a minimalist, high-performance smart study planner designed to optimize deep work sessions and prevent student burnout. Built with a mindful aesthetic, it features adaptive scheduling, burnout risk detection, and a focused environment for maximum cognitive efficiency.
 
@@ -116,3 +129,8 @@ Frontend paths:
 ## 🧠 Philosophy
 
 The Cognitive Sanctuary is built on the principle of **Mindful Productivity**. Instead of just counting hours, the app tracks cognitive load and energy levels to ensure that students work when they are most capable and rest when they are most vulnerable to burnout.
+
+## 👥 Credits
+
+Developed by Cognitive Sanctuary Team  
+Inspired by mindful productivity research and cognitive load theory.
