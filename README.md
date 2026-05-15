@@ -43,6 +43,91 @@
 
 ---
 
+<details>
+
+<summary>
+
+## 🧩 Simplified UML Diagram
+
+</summary>
+
+```mermaid
+classDiagram
+
+%% ── INHERITANCE ────────────────────────────────
+
+class StudyTask {
+    +taskId : int
+    +title : string
+    +status : string
+    +updateTask() void
+}
+
+class FocusSession {
+    +focusLevel : int
+    +extendFocus() void
+}
+
+class BreakSession {
+    +breakDuration : double
+    +startBreak() void
+}
+
+StudyTask <|-- FocusSession
+StudyTask <|-- BreakSession
+
+%% ── CORE ENTITIES ────────────────────────────────
+
+class User {
+    +userId : int
+    +name : string
+    +email : string
+    +updateMood() void
+}
+
+class StudySession {
+    +sessionId : int
+    +status : string
+    +studyDuration : double
+    +mood : int
+    +startSession() void
+    +endSession() void
+}
+
+class StudyPlanner {
+    +burnoutMode : string
+    +plannedFocus : double
+    +plannedBreak : double
+    +generateSchedule() void
+    +adjustSchedule() void
+}
+
+class BurnoutCalculator {
+    +score : double
+    +calculateScore() double
+    +getStudyState() string
+}
+
+class AdaptiveSessionConfig {
+    +focusDuration : double
+    +breakDuration : double
+    +mode : string
+}
+
+%% ── RELATIONSHIPS ────────────────────────────────
+
+User "1" --> "0..*" StudySession : owns
+User "1" --> "1" StudyPlanner : has
+StudyPlanner "1" --> "0..*" StudySession : schedules
+StudySession "1" --> "0..*" StudyTask : contains
+BurnoutCalculator ..> StudySession : evaluates
+StudyPlanner ..> AdaptiveSessionConfig : produces
+```
+
+</details>
+
+---
+
 ## 🚀 Getting Started
 
 Follow these instructions to get the project up and running on your local machine.
