@@ -27,6 +27,74 @@
 
 ---
 
+## ⚙️ How the System Works
+
+The Cognitive Sanctuary operates by combining task management, focus session tracking, mood monitoring, and burnout analysis into a single adaptive study environment.
+
+### 1. User Input & Study Planning
+Users begin by configuring their study session:
+- Planned focus duration
+- Break intervals
+- Mood level
+- Study priorities
+
+The system stores this information and generates a personalized study structure through the `StudyPlanner`.
+
+---
+
+### 2. Adaptive Session Management
+The application separates study activities into:
+- **Focus Sessions** for deep work
+- **Break Sessions** for cognitive recovery
+
+Each session inherits from the base `StudyTask` model, allowing the system to consistently track:
+- Task status
+- Estimated duration
+- Session progress
+
+The planner dynamically adjusts schedules depending on cognitive load and study behavior.
+
+---
+
+### 3. Burnout Detection
+During study sessions, the `BurnoutCalculator` continuously evaluates:
+- Total study duration
+- Frequency of breaks
+- Skipped breaks
+- Mood level
+- Focus consistency
+
+Using these factors, the system calculates a burnout score and categorizes the user's cognitive state.
+
+Possible outcomes include:
+- Balanced
+- Fatigued
+- Burnout Risk
+
+---
+
+### 4. Smart Schedule Adjustment
+Based on the burnout evaluation, the `AdaptiveSessionConfig` modifies:
+- Focus duration
+- Break duration
+- Break intervals
+- Study mode
+
+This ensures students maintain productivity without exceeding healthy cognitive limits.
+
+---
+
+### 5. Data Visualization & Monitoring
+The dashboard visualizes:
+- Cognitive focus flow
+- Session statistics
+- Mood trends
+- Burnout indicators
+
+These analytics help users understand their productivity patterns and improve long-term study habit
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
