@@ -1,12 +1,13 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "../services/supabase";
 
-import LoginForm from "../components/auth/LoginForm";
+import SignupForm from "../components/auth/SignupForm";
 
-const LoginPage = () => {
+const SignupPage = () => {
   const navigate = useNavigate();
+  const [authMessage, setAuthMessage] = useState("");
 
   useEffect(() => {
     const checkSession = async () => {
@@ -31,32 +32,41 @@ const LoginPage = () => {
     checkSession();
   }, [navigate]);
 
-  const handleLogin = async (credentials) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-      });
+  const handleSignup = async ({ fullName, email, password }) => {
+    setAuthMessage("");
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: window.location.origin + "/dashboard",
+      },
+    });
 
-      if (error) {
-        alert(error.message);
-        return;
-      }
+    if (error) {
+      alert(error.message);
+      return;
+    }
 
-      const user = {
-        id: data.user.id,
-        email: data.user.email,
-        name:
-          data.user.user_metadata?.full_name || data.user.email.split("@")[0],
-        avatar: data.user.user_metadata?.avatar_url,
-      };
+    const user = data.user
+      ? {
+          id: data.user.id,
+          email: data.user.email,
+          name:
+            data.user.user_metadata?.full_name || data.user.email.split("@")[0],
+          avatar: data.user.user_metadata?.avatar_url,
+        }
+      : null;
 
+    if (data.session && user) {
       localStorage.setItem("user", JSON.stringify(user));
       navigate("/dashboard");
-    } catch (err) {
-      console.error(err);
-      alert("Login failed. Please try again.");
+      return;
     }
+
+    setAuthMessage(
+      "Account created. Check your email to verify your account, then log in.",
+    );
   };
 
   const handleGoogleLogin = async () => {
@@ -73,7 +83,7 @@ const LoginPage = () => {
       }
     } catch (err) {
       console.error(err);
-      alert("Google login failed.");
+      alert("Google signup failed.");
     }
   };
 
@@ -82,7 +92,6 @@ const LoginPage = () => {
       className="min-h-screen flex flex-col md:flex-row bg-slate-50 overflow-hidden"
       style={{ backgroundColor: "rgb(232, 228, 220)" }}
     >
-      {/* 🌿 LEFT IMAGE PANEL */}
       <div
         className="hidden md:flex w-1/2 relative bg-cover bg-center"
         style={{
@@ -90,15 +99,9 @@ const LoginPage = () => {
             "url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=80')",
         }}
       >
-        {/* 🌫 blur layer */}
         <div className="absolute inset-0 backdrop-blur-[2px]" />
-
-        {/* darker cinematic overlay */}
         <div className="absolute inset-0 bg-black/45" />
-
-        {/* content */}
         <div className="relative z-10 flex flex-col justify-between p-10 text-white">
-          {/* top logo */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/10 backdrop-blur-md flex items-center justify-center shadow-md">
               <img
@@ -107,19 +110,18 @@ const LoginPage = () => {
                 className="w-6 h-6 object-contain"
               />
             </div>
-
             <h1 className="text-xl font-semibold">The Cognitive Sanctuary</h1>
           </div>
 
-          {/* hero text */}
           <div>
             <h2 className="text-3xl font-bold leading-tight">
-              Clarity creates focus.
+              Build your focus routine.
               <br />
-              Focus creates progress.
+              Start with one account.
             </h2>
             <p className="mt-2 text-white/80 text-sm max-w-sm">
-              A mindful workspace designed to help you focus, reflect, and grow.
+              Create your space, keep your data private, and let the planner
+              adapt after each session.
             </p>
           </div>
 
@@ -129,13 +131,10 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* 📌 RIGHT LOGIN PANEL */}
       <div className="w-full md:w-1/2 flex items-center justify-center px-6 py-12 relative">
-        {/* soft glow background */}
         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-emerald-100 blur-[120px] opacity-40" />
 
         <div className="w-full max-w-md z-10">
-          {/* header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -151,16 +150,15 @@ const LoginPage = () => {
               </div>
 
               <h1 className="text-2xl font-bold text-slate-800">
-                Welcome Back
+                Create your account
               </h1>
             </div>
 
             <p className="text-sm text-slate-500">
-              Log in to continue your mindful workspace
+              Join the sanctuary and let your schedule adapt automatically.
             </p>
           </motion.div>
 
-          {/* login card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -168,21 +166,21 @@ const LoginPage = () => {
             className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden"
           >
             <div className="h-1.5 w-full bg-sanctuary-500" />
-            <LoginForm
-              onLogin={handleLogin}
+            <SignupForm
+              onSignup={handleSignup}
               onGoogleLogin={handleGoogleLogin}
+              authMessage={authMessage}
             />
           </motion.div>
 
-          {/* footer */}
           <p className="mt-6 text-center text-sm text-slate-500">
-            New to the Sanctuary?{" "}
+            Already have an account?{" "}
             <button
               type="button"
-              onClick={() => navigate("/signup")}
+              onClick={() => navigate("/")}
               className="text-sanctuary-700 font-semibold hover:text-sanctuary-800"
             >
-              Create an account
+              Log in
             </button>
           </p>
         </div>
@@ -191,4 +189,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default SignupPage;
