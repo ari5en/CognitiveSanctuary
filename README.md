@@ -1,4 +1,17 @@
-# The Cognitive Sanctuary 🌿
+<p align="center">
+  <img src="./frontend/public/logo.jpg" width="200" />
+</p>
+
+<h1 align="center">Cognitive Sanctuary</h1>
+
+<p align="center">
+
+<img src="https://img.shields.io/badge/React-19-blue" />
+<img src="https://img.shields.io/badge/Vite-Frontend-purple" />
+<img src="https://img.shields.io/badge/ASP.NET-Core-green" />
+<img src="https://img.shields.io/badge/Supabase-Backend-brightgreen" />
+
+</p>
 
 **The Cognitive Sanctuary** is a minimalist, high-performance smart study planner designed to optimize deep work sessions and prevent student burnout. Built with a mindful aesthetic, it features adaptive scheduling, burnout risk detection, and a focused environment for maximum cognitive efficiency.
 
@@ -11,6 +24,74 @@
 - **Session Configuration:** Personalize your deep work environment with mental state selectors and burnout prediction modeling.
 - **Data Visualization:** Integrated Recharts to visualize your "Cognitive Focus Flow" and engagement trends.
 - **Premium Design:** A minimalist "Forest Green" aesthetic with smooth animations powered by Framer Motion.
+
+---
+
+## ⚙️ How the System Works
+
+The Cognitive Sanctuary operates by combining task management, focus session tracking, mood monitoring, and burnout analysis into a single adaptive study environment.
+
+### 1. User Input & Study Planning
+Users begin by configuring their study session:
+- Planned focus duration
+- Break intervals
+- Mood level
+- Study priorities
+
+The system stores this information and generates a personalized study structure through the `StudyPlanner`.
+
+---
+
+### 2. Adaptive Session Management
+The application separates study activities into:
+- **Focus Sessions** for deep work
+- **Break Sessions** for cognitive recovery
+
+Each session inherits from the base `StudyTask` model, allowing the system to consistently track:
+- Task status
+- Estimated duration
+- Session progress
+
+The planner dynamically adjusts schedules depending on cognitive load and study behavior.
+
+---
+
+### 3. Burnout Detection
+During study sessions, the `BurnoutCalculator` continuously evaluates:
+- Total study duration
+- Frequency of breaks
+- Skipped breaks
+- Mood level
+- Focus consistency
+
+Using these factors, the system calculates a burnout score and categorizes the user's cognitive state.
+
+Possible outcomes include:
+- Balanced
+- Fatigued
+- Burnout Risk
+
+---
+
+### 4. Smart Schedule Adjustment
+Based on the burnout evaluation, the `AdaptiveSessionConfig` modifies:
+- Focus duration
+- Break duration
+- Break intervals
+- Study mode
+
+This ensures students maintain productivity without exceeding healthy cognitive limits.
+
+---
+
+### 5. Data Visualization & Monitoring
+The dashboard visualizes:
+- Cognitive focus flow
+- Session statistics
+- Mood trends
+- Burnout indicators
+
+These analytics help users understand their productivity patterns and improve long-term study habit
 
 ---
 
@@ -27,6 +108,91 @@
 ### Backend
 
 - **Framework:** ASP.NET Core Web API (C#)
+
+---
+
+<details>
+
+<summary>
+
+## 🧩 Simplified UML Diagram
+
+</summary>
+
+```mermaid
+classDiagram
+
+%% ── INHERITANCE ────────────────────────────────
+
+class StudyTask {
+    +taskId : int
+    +title : string
+    +status : string
+    +updateTask() void
+}
+
+class FocusSession {
+    +focusLevel : int
+    +extendFocus() void
+}
+
+class BreakSession {
+    +breakDuration : double
+    +startBreak() void
+}
+
+StudyTask <|-- FocusSession
+StudyTask <|-- BreakSession
+
+%% ── CORE ENTITIES ────────────────────────────────
+
+class User {
+    +userId : int
+    +name : string
+    +email : string
+    +updateMood() void
+}
+
+class StudySession {
+    +sessionId : int
+    +status : string
+    +studyDuration : double
+    +mood : int
+    +startSession() void
+    +endSession() void
+}
+
+class StudyPlanner {
+    +burnoutMode : string
+    +plannedFocus : double
+    +plannedBreak : double
+    +generateSchedule() void
+    +adjustSchedule() void
+}
+
+class BurnoutCalculator {
+    +score : double
+    +calculateScore() double
+    +getStudyState() string
+}
+
+class AdaptiveSessionConfig {
+    +focusDuration : double
+    +breakDuration : double
+    +mode : string
+}
+
+%% ── RELATIONSHIPS ────────────────────────────────
+
+User "1" --> "0..*" StudySession : owns
+User "1" --> "1" StudyPlanner : has
+StudyPlanner "1" --> "0..*" StudySession : schedules
+StudySession "1" --> "0..*" StudyTask : contains
+BurnoutCalculator ..> StudySession : evaluates
+StudyPlanner ..> AdaptiveSessionConfig : produces
+```
+
+</details>
 
 ---
 
@@ -116,3 +282,12 @@ Frontend paths:
 ## 🧠 Philosophy
 
 The Cognitive Sanctuary is built on the principle of **Mindful Productivity**. Instead of just counting hours, the app tracks cognitive load and energy levels to ensure that students work when they are most capable and rest when they are most vulnerable to burnout.
+
+## 👥 Credits
+
+Developed by Cognitive Sanctuary Team:
+- Claire Nicole Bay
+- Jyvhan Earl Ponce
+- Richard Crue Torres
+
+Inspired by mindful productivity research and cognitive load theory.
